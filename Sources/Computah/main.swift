@@ -28,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        model?.shutdownWakeListening()
         model?.closeBrowser(); model?.stop(); model?.stopAllTasks(); model?.hotkey.uninstall(); model?.apiKey = ""
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }

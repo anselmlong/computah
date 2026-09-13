@@ -7,7 +7,9 @@ Screenshots and captions remain in app memory rather than a Computah transcript 
 The worker requests a read-only Codex sandbox, disables built-in execution tools, and accepts live web search and its supplied browser tools. These are prototype boundaries, not a claim of complete operating-system isolation. Submission checks also cannot prove that every website's GET link is harmless. Review prepared work and destinations before acting.
 
 
-Microphone audio is sent to OpenAI during a conversation. Browser observations include page text and screenshots sent to the task model. Avoid exposing unrelated private information in the display used for a demo.
+When “Listen for Hey, computah” is enabled and Microphone and Speech Recognition access are granted, Computah uses the microphone between conversations to recognize the wake phrase locally. Wake recognition requires on-device English support and never falls back to server recognition. It does not store background transcripts or send background audio to OpenAI. Turn the switch off in settings to stop wake listening. Wake listening pauses during conversations and resumes after they end; quitting stops it entirely.
+
+Microphone audio is sent to OpenAI during a conversation, including one started by “Hey, computah.” Clicking outside the notch collapses the panel without ending a conversation or its microphone stream. Use End conversation or the conversation key to end voice. Browser observations include page text and screenshots sent to the task model. Avoid exposing unrelated private information in the display used for a demo.
 
 URL checks apply to navigations; they are not a network firewall for every WebKit subresource and do not eliminate DNS rebinding risks. Do not describe the browser as a security sandbox for hostile sites.
 

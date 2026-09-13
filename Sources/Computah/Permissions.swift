@@ -157,6 +157,7 @@ enum Permissions {
 
     static func openScreenRecordingSettings() { openPrivacyPane("Privacy_ScreenCapture") }
     static func openMicrophoneSettings() { openPrivacyPane("Privacy_Microphone") }
+    static func openSpeechSettings() { openPrivacyPane("Privacy_SpeechRecognition") }
     static func openInputMonitoringSettings() { openPrivacyPane("Privacy_ListenEvent") }
     static func openAccessibilitySettings() { openPrivacyPane("Privacy_Accessibility") }
 

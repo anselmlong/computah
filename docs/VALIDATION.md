@@ -1,5 +1,11 @@
 # Validation record
 
+## Local Xcode verification — 2026-09-13
+
+With Xcode 26.6 (17F113) installed, the local working tree passed all 58 XCTest tests with zero failures or skips, including four wake-phrase and notch-dismissal tests. Release compilation also passed. Both commands used `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`; the system-wide selection remains Command Line Tools because changing it requires administrator authentication. This supersedes the earlier local XCTest toolchain blocker.
+
+`Resources/Info.plist` validation and `git diff --check` passed. The local app was subsequently packaged with explicit ad hoc signing and launched for user testing. After changing the phrase to “Hey, computah” and adding a spoken acknowledgment on connection, all 58 tests passed again and local build 2 was launched. No Apple Development or Developer ID signing identity is present. These tests do not verify spoken wake detection through a real microphone or an authenticated voice conversation.
+
 ## Demo-readiness pass — 2026-09-13
 
 Working tree based on `31420dc`; these results apply to the local changes, not a published release.

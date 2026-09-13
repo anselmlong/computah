@@ -282,6 +282,14 @@ struct IslandView: View {
             }.pickerStyle(.menu).font(.system(size: 12))
             Text("Tap to start or end conversation. Hold and drag to circle. Your conversation key choice is saved.")
                 .font(.system(size: 11)).foregroundStyle(secondaryInk).fixedSize(horizontal: false, vertical: true)
+            Toggle("Listen for “Hey, computah”", isOn: $model.wakeWordEnabled)
+                .toggleStyle(.switch).font(.system(size: 12)).tint(leaf)
+            Text(model.wakeWordStatus)
+                .font(.system(size: 11)).foregroundStyle(secondaryInk).fixedSize(horizontal: false, vertical: true)
+            if model.wakeWordEnabled && (!model.speechAllowed || !model.microphoneAllowed) {
+                Button(model.wakePermissionPending ? "Requesting access…" : "Allow wake listening", action: model.requestWakeAccess)
+                    .controlSize(.small).disabled(model.wakePermissionPending)
+            }
             permissionRow("Microphone", allowed: model.microphoneAllowed,
                 action: model.requestMicrophoneAccess, openSettings: Permissions.openMicrophoneSettings)
             permissionRow("Screen Recording", allowed: model.screenAllowed,
@@ -374,6 +382,8 @@ final class PanelController {
     private var revealTimer: Timer?
     private var currentReveal: CGFloat = 1
     private var targetSize: CGSize = .zero
+    private var localClickMonitor: Any?
+    private var globalClickMonitor: Any?
 
     init(model: AppModel) {
         self.model = model
@@ -395,7 +405,40 @@ final class PanelController {
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
                 Task { @MainActor in self?.model.refreshPermissions(); self?.resize() }
             })
+        let clicks: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: clicks) { [weak self] event in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                // Child windows include native popovers and menu controls inside the panel.
+                var window = event.window
+                while let current = window {
+                    if current === self.panel { return }
+                    window = current.parent
+                }
+                self.dismissIfOutside(NSEvent.mouseLocation)
+            }
+            return event
+        }
+        globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: clicks) { [weak self] _ in
+            MainActor.assumeIsolated { self?.dismissIfOutside(NSEvent.mouseLocation) }
+        }
         resize(); panel.orderFrontRegardless()
+    }
+
+    func dismissIfOutside(_ point: NSPoint) {
+        guard model.expanded, !panel.frame.contains(point) else { return }
+        model.expanded = false
+        resize()
+    }
+
+    deinit {
+        if let localClickMonitor { NSEvent.removeMonitor(localClickMonitor) }
+        if let globalClickMonitor { NSEvent.removeMonitor(globalClickMonitor) }
+        revealTimer?.invalidate()
+        for observer in observers {
+            NotificationCenter.default.removeObserver(observer)
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+        }
     }
 
     func resize() {

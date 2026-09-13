@@ -17,6 +17,12 @@ Use each permission row's **Allow** or **Settings** control to grant Microphone,
 
 If macOS requires a relaunch after permission changes, choose **Reopen Computah**. Reopening ends voice and computer tasks, then loads the saved API key from Keychain.
 
+## Hands-free activation
+
+In Computah settings, leave **Listen for “Hey, computah”** enabled and choose **Allow wake listening** to grant Microphone and Speech Recognition access. Say “Hey, computah” while Computah is running to open the notch and start a conversation using your saved API key. Computah gives a brief spoken acknowledgment as soon as the voice connection is ready, then listens for your request. On-device English speech recognition must be available on the Mac; settings reports availability. The switch is saved across launches, and disabling it releases the microphone while idle.
+
+Click outside the expanded notch to collapse it. This leaves voice and independent tasks running; use **End conversation** to stop voice.
+
 ## Use it
 
 - Tap your configured conversation key (Right Shift by default) to start or end a conversation.
