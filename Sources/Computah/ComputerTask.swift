@@ -25,9 +25,12 @@ final class ComputerTaskSession: ObservableObject, Identifiable {
     var hasBrowserTab: Bool { browser.hasTaskTab }
     var approvalPending: Bool { worker.approvalPending }
     var approvalCanBeAccepted: Bool { worker.approvalCanBeAccepted }
+    var pendingQuestion: CodexQuestionRequest? { worker.pendingQuestion }
+    var pendingQuestions: [CodexQuestionRequest] { worker.pendingQuestions }
 
     fileprivate var onResult: ((ComputerTaskSession, String) -> Void)?
     fileprivate var onReview: ((ComputerTaskSession, String) -> Void)?
+    fileprivate var onQuestion: ((ComputerTaskSession, CodexQuestionRequest) -> Void)?
     private var startupTask: Task<Void, Never>?
     private var observers: Set<AnyCancellable> = []
     private var notificationSent = false
@@ -44,6 +47,10 @@ final class ComputerTaskSession: ObservableObject, Identifiable {
         browser.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &observers)
         worker.onResult = { [weak self] text in self?.completed(text) }
         worker.onReview = { [weak self] text in self?.requestedReview(text) }
+        worker.onQuestion = { [weak self] question in
+            guard let self else { return }
+            self.onQuestion?(self, question)
+        }
     }
 
     func addDelegations(_ ids: Set<String>) { delegationIDs.formUnion(ids) }
@@ -101,6 +108,10 @@ final class ComputerTaskSession: ObservableObject, Identifiable {
         state = .working
         outcome = nil
         finishedAt = nil
+    }
+
+    func answerPendingQuestion(requestID: String, answers: [String: [String]]) throws {
+        try worker.answerPendingQuestion(requestID: requestID, answers: answers)
     }
 
     private func notifyResult(_ text: String) {
@@ -163,6 +174,7 @@ final class ComputerTaskManager: ObservableObject {
     @Published private(set) var sessions: [ComputerTaskSession] = []
     var onResult: ((ComputerTaskSession, String) -> Void)?
     var onReview: ((ComputerTaskSession, String) -> Void)?
+    var onQuestion: ((ComputerTaskSession, CodexQuestionRequest) -> Void)?
     private let browserFactory: @MainActor () -> BrowserWorkspace
     private let workerFactory: @MainActor (BrowserWorkspace) -> CodexWorker
     private var sessionObservers: [UUID: AnyCancellable] = [:]
@@ -202,6 +214,7 @@ final class ComputerTaskManager: ObservableObject {
                                           browser: browser, worker: workerFactory(browser))
         session.onResult = { [weak self] session, text in self?.onResult?(session, text) }
         session.onReview = { [weak self] session, text in self?.onReview?(session, text) }
+        session.onQuestion = { [weak self] session, question in self?.onQuestion?(session, question) }
         sessionObservers[session.id] = session.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         sessions.append(session)
         return session

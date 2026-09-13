@@ -16,9 +16,9 @@ The main accent is RGB `0.82, 0.95, 0.55`, approximately `#D1F28C`. Backgrounds 
 
 ## Conversation
 
-The expanded header shows Computah and a plain-language state. Before the first utterance, the panel explains the right Shift shortcut. A single expanded live transcript shows both the user and Computah, distinguished by speaker labels. The panel does not repeat the full history in a second section. A screen-context row shows whether the current display or circled region is included, with a Clear action for a selection.
+The expanded header shows Computah and a plain-language state. Before the conversation starts, the panel explains the configured shortcut. During a conversation, compact live subtitles show the latest user and Computah speech in separate labeled rows. The user row shows one line and the assistant row shows two, keeping the newest text visible. After the conversation ends, a scrollable transcript is available. A screen-context row shows whether the current display or circled region is included, with a Clear action for a selection.
 
-The main button starts or ends the conversation. Each concurrent task has a title, status, stop and review controls, and a result. A native app-approval request adds **Allow once** and **Don't allow** to the task card. Answering that request keeps the worker turn alive. Pausing voice does not stop these independent workers.
+The main button starts or ends the conversation. Each concurrent task has a title, status, stop and review controls, and a result. A native app-approval request adds **Allow once** and **Don't allow** to the task card. Answering that request keeps the worker turn alive. A worker question changes the status to Waiting for your voice answer and adds a text form to the task card. The form renders choices, an optional alternative answer, ordinary text fields, or private fields for secret answers. The voice conversation names the task, asks each non-secret question with its choices, and returns the user's relevant answer to that same task. Pausing voice does not stop these independent workers.
 
 If echo cancellation cannot start, the conversation panel shows a headphones notice while ordinary audio remains available.
 
@@ -28,10 +28,10 @@ Settings provide a secure API key field, a Conversation key picker, permission s
 
 The app has no custom Chrome extension installation, pairing controls, or separate helper check. Settings report whether the Codex CLI is installed. Account, plugin, and native app access are checked when a task starts. Each task uses a regular `codex app-server` process with the user's normal Codex account and plugins. It requests Astra with high reasoning effort and does not receive the API key saved for voice and screen reading.
 
-Native Computer Use may ask for app approval through MCP elicitation. **Allow once** accepts one request and **Don't allow** declines it; both answer the app server without ending the turn. A request for missing information or a consequential action still stops the task for manual review. Concurrent reasoning tasks share existing applications, so the interface must not imply isolated browser tabs or independent desktops.
+Native Computer Use may ask for app approval through MCP elicitation. **Allow once** accepts one request and **Don't allow** declines it; both answer the app server without ending the turn. Worker questions also keep their turns alive while the voice layer asks the user. Unrelated speech stays in the conversation; ambiguous replies repeat the pending question. Concurrent reasoning tasks share existing applications, so the interface must not imply isolated browser tabs or independent desktops.
 
 ## Pointing and access
 
-Holding right Shift reveals a temporary selection overlay on the display under the pointer. Dragging draws a lime lasso; the app captures its rectangular bounds as a crop alongside the whole display. Escape cancels. The Start talking button remains usable when Input Monitoring is unavailable.
+Holding the configured conversation key (Right Shift by default) reveals a temporary selection overlay on the display under the pointer. Dragging draws a lime lasso; the app captures its rectangular bounds as a crop alongside the whole display. Escape cancels. The Start talking button remains usable when Input Monitoring is unavailable.
 
-The interface labels icon controls for accessibility, uses system typography, permits caption and result text selection, and responds to Reduce Motion. Native mouse and keyboard events used for pointing belong to the user; worker browser tools do not drive the system cursor.
+The interface labels icon controls for accessibility, uses system typography, permits caption and result text selection, and responds to Reduce Motion. The pointing overlay uses the user's native mouse and keyboard events. Computer Use acts in existing applications and can affect the shared interface.

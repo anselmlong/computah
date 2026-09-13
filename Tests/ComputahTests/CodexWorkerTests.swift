@@ -3,6 +3,28 @@ import AppKit
 @testable import Computah
 
 final class CodexWorkerTests: XCTestCase {
+    func testExecutableDiscoveryWithFinderPathAndUserInstall() {
+        let expected = "/Users/test/.local/bin/codex"
+        let result = CodexExecutable.resolve(environment: ["PATH": "/usr/bin:/bin"],
+                                             home: URL(fileURLWithPath: "/Users/test"),
+                                             isExecutable: { $0 == expected })
+        XCTAssertEqual(result?.path, expected)
+    }
+
+    func testExecutableDiscoveryUsesPathAndFallsBackToHomebrew() {
+        for expected in ["/custom/bin/codex", "/opt/homebrew/bin/codex", "/usr/local/bin/codex"] {
+            let result = CodexExecutable.resolve(environment: ["PATH": "/custom/bin:/usr/bin"],
+                                                 isExecutable: { $0 == expected })
+            XCTAssertEqual(result?.path, expected)
+        }
+    }
+
+    func testExecutableDiscoveryRejectsRelativePathsAndMissingExecutables() {
+        XCTAssertNil(CodexExecutable.resolve(environment: ["PATH": ":.:relative/bin"],
+                                              isExecutable: { !$0.hasPrefix("/") }))
+        XCTAssertNil(CodexExecutable.resolve(isExecutable: { _ in false }))
+    }
+
     func testWorkerConfigurationUsesNormalCodexHomeAndRemovesParentTaskIdentity() throws {
         let directory = URL(fileURLWithPath: "/Users/tester")
         let environment = CodexWorkerProtocol.environment(from: [
@@ -18,11 +40,14 @@ final class CodexWorkerTests: XCTestCase {
         XCTAssertNil(environment["CODEX_ENGINE_STATE"])
         XCTAssertNil(environment["OPENAI_API_KEY"])
         XCTAssertEqual(environment["HTTP_PROXY"], "http://localhost:8080")
-        XCTAssertEqual(CodexWorkerProtocol.arguments, ["app-server", "--listen", "stdio://"])
+        XCTAssertEqual(CodexWorkerProtocol.arguments, [
+            "app-server", "--enable", "default_mode_request_user_input", "--listen", "stdio://"
+        ])
         let thread = CodexWorkerProtocol.thread(directory: directory)
         XCTAssertEqual(thread["model"] as? String, "gpt-6-astra")
         XCTAssertEqual(thread["allowProviderModelFallback"] as? Bool, false)
-        XCTAssertEqual(thread["sandbox"] as? String, "read-only")
+        XCTAssertEqual(thread["approvalPolicy"] as? String, "never")
+        XCTAssertEqual(thread["sandbox"] as? String, "danger-full-access")
         XCTAssertEqual(thread["ephemeral"] as? Bool, true)
         XCTAssertNil(thread["modelProvider"])
         XCTAssertNil(thread["dynamicTools"])
@@ -33,13 +58,32 @@ final class CodexWorkerTests: XCTestCase {
         XCTAssertNoThrow(try JSONSerialization.data(withJSONObject: thread))
     }
 
-    func testReviewRequestsBecomeActionableSummaries() {
-        let summary = CodexWorkerProtocol.reviewSummary(method: "item/tool/requestUserInput", params: [
+    func testApprovalRequestsBecomeActionableSummariesWithoutCapturingQuestions() {
+        XCTAssertNil(CodexWorkerProtocol.reviewSummary(method: "item/tool/requestUserInput", params: [
             "questions": [["question": "Review the prepared form before submission."]]
-        ])
-        XCTAssertEqual(summary, "Review the prepared form before submission.")
-        XCTAssertNotNil(CodexWorkerProtocol.reviewSummary(method: "item/permissions/requestApproval", params: [:]))
+        ]))
+        XCTAssertEqual(CodexWorkerProtocol.reviewSummary(
+            method: "mcpServer/elicitation/request",
+            params: ["message": "Allow Calculator for this task?"]
+        ), "Allow Calculator for this task?")
+        XCTAssertEqual(CodexWorkerProtocol.reviewSummary(
+            method: "item/permissions/requestApproval",
+            params: ["reason": "Codex needs network access to the university site."]
+        ), "Codex needs network access to the university site.")
+        XCTAssertEqual(CodexWorkerProtocol.reviewSummary(
+            method: "item/commandExecution/requestApproval", params: [:]
+        ), "Codex is waiting for approval to run a command.")
         XCTAssertNil(CodexWorkerProtocol.reviewSummary(method: "unexpectedTool", params: [:]))
+    }
+
+    func testQuestionResponseUsesCodexRequestUserInputShape() throws {
+        let response = CodexWorkerProtocol.questionResponse(answers: [
+            "program": ["Computer science"],
+            "confirm": ["Yes, submit it"]
+        ])
+        let data = try JSONSerialization.data(withJSONObject: response, options: [.sortedKeys])
+        XCTAssertEqual(String(decoding: data, as: UTF8.self),
+                       #"{"answers":{"confirm":{"answers":["Yes, submit it"]},"program":{"answers":["Computer science"]}}}"#)
     }
 
     @MainActor
@@ -118,8 +162,7 @@ final class CodexWorkerTests: XCTestCase {
 
     @MainActor
     func testInstalledCodexHandshakeUsesNormalUserConfigurationWithoutModelCall() async throws {
-        let executable = URL(fileURLWithPath: "/opt/homebrew/bin/codex")
-        guard FileManager.default.isExecutableFile(atPath: executable.path) else { throw XCTSkip("Codex CLI is not installed") }
+        guard let executable = CodexExecutable.resolve() else { throw XCTSkip("Codex CLI is not installed") }
         let environment = CodexWorkerProtocol.environment()
         let directory = URL(fileURLWithPath: environment["HOME"] ?? FileManager.default.homeDirectoryForCurrentUser.path)
         let rpc = CodexRPC(executable: executable, arguments: CodexWorkerProtocol.arguments,
@@ -152,26 +195,99 @@ final class CodexWorkerTests: XCTestCase {
     }
 
     @MainActor
-    func testReviewToolStopsWorkerBeforeManualTakeoverAndIgnoresLateEvents() async throws {
+    func testStructuredQuestionsWaitForExplicitVoiceAnswersAndResumeSameTask() async throws {
         _ = NSApplication.shared
         let worker = fakeWorker(events: [
             #"{"method":"turn/started","params":{"threadId":"thread-test","turn":{"id":"turn-test"}}}"#,
-            #"{"method":"item/tool/requestUserInput","id":"tool-rpc","params":{"threadId":"thread-test","turnId":"turn-test","itemId":"review-call","isBlocking":true,"questions":[{"header":"Review","id":"review","question":"Check the prepared application before submitting."}]}}"#,
-            #"{"method":"item/completed","params":{"threadId":"old-thread","turnId":"old-turn","item":{"type":"agentMessage","id":"late","phase":"final_answer","text":"I submitted it."}}}"#
+            #"{"method":"item/tool/requestUserInput","id":"tool-rpc","params":{"threadId":"thread-test","turnId":"turn-test","itemId":"question-call","isBlocking":true,"questions":[{"header":"Program","id":"program","question":"Which program should I use?","options":[{"label":"Computer science","description":"Use the computer science program."}],"isOther":true,"isSecret":false},{"header":"Submit","id":"confirm","question":"Should I submit the completed application?","options":[{"label":"Yes","description":"Submit it now."},{"label":"No","description":"Leave it prepared."}],"isOther":false,"isSecret":false}]}}"#
+        ], respondBeforeEvents: true, afterResponseEvents: [
+            #"{"method":"item/completed","params":{"threadId":"thread-test","turnId":"turn-test","item":{"type":"agentMessage","id":"answer","phase":"final_answer","text":"Submitted after receiving your answer."}}}"#,
+            #"{"method":"turn/completed","params":{"threadId":"thread-test","turn":{"id":"turn-test","status":"completed"}}}"#
         ])
+        var questions: [CodexQuestionRequest] = []
         var reviews: [String] = []
         var results: [String] = []
-        worker.onReview = { reason in
-            XCTAssertFalse(worker.running)
-            reviews.append(reason)
-        }
+        worker.onQuestion = { questions.append($0) }
+        worker.onReview = { reviews.append($0) }
         worker.onResult = { results.append($0) }
         try await worker.start(task: "prepare application", context: "test", apiKey: "dummy-no-real-credentials")
-        XCTAssertEqual(reviews, ["Check the prepared application before submitting."])
-        XCTAssertEqual(results, [])
-        XCTAssertTrue(worker.reviewRequested)
-        XCTAssertFalse(worker.result.contains("submitted it"))
+        for _ in 0..<50 where worker.pendingQuestion == nil { await Task.yield() }
+
+        XCTAssertTrue(worker.running)
+        XCTAssertFalse(worker.reviewRequested)
+        XCTAssertFalse(worker.approvalPending)
+        XCTAssertEqual(worker.status, "Waiting for your voice answer")
+        XCTAssertEqual(questions.count, 1)
+        let request = try XCTUnwrap(worker.pendingQuestion)
+        XCTAssertEqual(request.id, "s:tool-rpc")
+        XCTAssertEqual(request.itemID, "question-call")
+        XCTAssertEqual(request.questions.map(\.id), ["program", "confirm"])
+        XCTAssertEqual(request.questions[0].header, "Program")
+        XCTAssertEqual(request.questions[0].prompt, "Which program should I use?")
+        XCTAssertEqual(request.questions[0].options,
+                       [CodexQuestionOption(label: "Computer science", description: "Use the computer science program.")])
+        XCTAssertTrue(request.questions[0].allowsOther)
+        XCTAssertFalse(request.questions[0].isSecret)
+        XCTAssertEqual(request.questions[1].options.map(\.label), ["Yes", "No"])
+        XCTAssertEqual(reviews, [])
+
+        XCTAssertNoThrow(try worker.answerPendingQuestion(
+            requestID: request.id, questionID: "program", answer: "Computer science"
+        ))
+        XCTAssertNotNil(worker.pendingQuestion)
+        XCTAssertEqual(worker.result, "Should I submit the completed application?")
+        XCTAssertThrowsError(try worker.answerPendingQuestion(
+            requestID: request.id, questionID: "program", answer: "A different program"
+        ))
+        XCTAssertThrowsError(try worker.answerPendingQuestion(
+            requestID: "s:another-task", answers: ["program": ["Computer science"], "confirm": ["Yes"]]
+        ))
+        XCTAssertNotNil(worker.pendingQuestion)
+
+        try worker.answerPendingQuestion(requestID: request.id, questionID: "confirm", answer: "Yes, submit it")
+        for _ in 0..<50 where worker.running { await Task.yield() }
+        XCTAssertNil(worker.pendingQuestion)
         XCTAssertFalse(worker.running)
+        XCTAssertEqual(worker.status, "Finished")
+        XCTAssertEqual(results, ["Submitted after receiving your answer."])
+    }
+
+    @MainActor
+    func testConcurrentWorkersKeepQuestionRequestIDsAndAnswersIsolated() async throws {
+        _ = NSApplication.shared
+        let event = #"{"method":"item/tool/requestUserInput","id":7,"params":{"threadId":"thread-test","itemId":"question-call","questions":[{"header":"Choice","id":"choice","question":"Which option?","options":[],"isOther":true,"isSecret":false}]}}"#
+        let first = fakeWorker(events: [event], respondBeforeEvents: true)
+        let second = fakeWorker(events: [event], respondBeforeEvents: true)
+        try await first.start(task: "first task", context: "", apiKey: "")
+        try await second.start(task: "second task", context: "", apiKey: "")
+        for _ in 0..<50 where first.pendingQuestion == nil || second.pendingQuestion == nil { await Task.yield() }
+
+        XCTAssertEqual(first.pendingQuestion?.id, "n:7")
+        XCTAssertEqual(second.pendingQuestion?.id, "n:7")
+        try first.answerPendingQuestion(requestID: "n:7", questionID: "choice", answer: "First option")
+        XCTAssertNil(first.pendingQuestion)
+        XCTAssertNotNil(second.pendingQuestion)
+        XCTAssertThrowsError(try second.answerPendingQuestion(
+            requestID: "n:7", questionID: "different-question", answer: "Second option"
+        ))
+        XCTAssertNotNil(second.pendingQuestion)
+        first.stop()
+        second.stop()
+    }
+
+    @MainActor
+    func testLiveWebSearchDoesNotStopNormalWorker() async throws {
+        _ = NSApplication.shared
+        let worker = fakeWorker(events: [
+            #"{"method":"turn/started","params":{"threadId":"thread-test","turn":{"id":"turn-test"}}}"#,
+            #"{"method":"item/started","params":{"threadId":"thread-test","turnId":"turn-test","item":{"type":"webSearch","id":"search"}}}"#,
+            #"{"method":"item/completed","params":{"threadId":"thread-test","turnId":"turn-test","item":{"type":"webSearch","id":"search"}}}"#,
+            #"{"method":"item/completed","params":{"threadId":"thread-test","turnId":"turn-test","item":{"type":"agentMessage","id":"answer","phase":"final_answer","text":"Found the official program."}}}"#,
+            #"{"method":"turn/completed","params":{"threadId":"thread-test","turn":{"id":"turn-test","status":"completed"}}}"#
+        ])
+        try await worker.start(task: "find official program", context: "", apiKey: "")
+        XCTAssertEqual(worker.status, "Finished")
+        XCTAssertEqual(worker.result, "Found the official program.")
     }
 
     @MainActor
@@ -213,11 +329,34 @@ final class CodexWorkerTests: XCTestCase {
     }
 
     @MainActor
-    private func fakeWorker(events: [String], respondBeforeEvents: Bool = false) -> CodexWorker {
+    func testUnknownOrMissingCompletionStatusCannotReportSuccess() async throws {
+        _ = NSApplication.shared
+        for status in [",\"status\":\"unexpected\"", ""] {
+            let worker = fakeWorker(events: [
+                #"{"method":"turn/started","params":{"threadId":"thread-test","turn":{"id":"turn-test"}}}"#,
+                "{\"method\":\"turn/completed\",\"params\":{\"threadId\":\"thread-test\",\"turn\":{\"id\":\"turn-test\"\(status)}}}"
+            ])
+            var results: [String] = []
+            worker.onResult = { results.append($0) }
+            try await worker.start(task: "test", context: "", apiKey: "dummy-no-real-credentials")
+            XCTAssertFalse(worker.running)
+            XCTAssertEqual(worker.status, "Worker unavailable")
+            XCTAssertEqual(results.count, 1)
+            XCTAssertTrue(worker.result.contains("unrecognized task status"))
+        }
+    }
+
+    @MainActor
+    private func fakeWorker(events: [String], respondBeforeEvents: Bool = false,
+                            afterResponseEvents: [String] = []) -> CodexWorker {
         // A deterministic subprocess speaks JSON-RPC without any model or network request.
         let eventPrints = events.map { "printf '%s\\n' '" + $0.replacingOccurrences(of: "'", with: "'\\''") + "'" }.joined(separator: "\n")
+        let afterResponsePrints = afterResponseEvents.map {
+            "printf '%s\\n' '" + $0.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        }.joined(separator: "\n")
         let turnResponse = "printf '%s\\n' '{\"id\":3,\"result\":{\"turn\":{\"id\":\"turn-test\"}}}'"
         let turnExchange = respondBeforeEvents ? "\(turnResponse)\n\(eventPrints)" : "\(eventPrints)"
+        let responseExchange = afterResponseEvents.isEmpty ? "" : "IFS= read -r fixture_line\n\(afterResponsePrints)"
         let script = """
         IFS= read -r fixture_line
         printf '%s\\n' '{"id":1,"result":{}}'
@@ -226,9 +365,12 @@ final class CodexWorkerTests: XCTestCase {
         printf '%s\\n' '{"id":2,"result":{"model":"gpt-6-astra","modelProvider":"openai","thread":{"id":"thread-test"}}}'
         IFS= read -r fixture_line
         \(turnExchange)
+        \(responseExchange)
         while IFS= read -r fixture_line; do :; done
         """
-        return CodexWorker(browser: BrowserWorkspace(transport: TestBrowserTransport()), rpcFactory: { _, _, environment, directory in
+        return CodexWorker(browser: BrowserWorkspace(transport: TestBrowserTransport()),
+                           resolveExecutable: { URL(fileURLWithPath: "/bin/sh") },
+                           rpcFactory: { _, _, environment, directory in
             CodexRPC(executable: URL(fileURLWithPath: "/bin/sh"), arguments: ["-c", script], environment: environment, directory: directory)
         })
     }

@@ -1,0 +1,78 @@
+import AppKit
+
+struct InstallerError: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
+}
+
+func install() throws {
+
+// Run only after verifying the published archive. Keep a rollback copy until launch succeeds.
+let files = FileManager.default
+guard CommandLine.arguments.count == 3 else { throw InstallerError(message: "Expected source and destination app paths") }
+let source = URL(fileURLWithPath: CommandLine.arguments[1]).standardizedFileURL
+let destination = URL(fileURLWithPath: CommandLine.arguments[2]).standardizedFileURL
+let identifier = "com.lvl8.computah"
+guard source != destination, Bundle(url: source)?.bundleIdentifier == identifier,
+      destination.lastPathComponent == "Computah.app" else { throw InstallerError(message: "Unexpected app bundle") }
+let parent = destination.deletingLastPathComponent()
+try files.createDirectory(at: parent, withIntermediateDirectories: true)
+let staging = parent.appendingPathComponent(".Computah-\(UUID().uuidString).app")
+let backup = parent.appendingPathComponent(".Computah-previous-\(UUID().uuidString).app")
+try files.copyItem(at: source, to: staging)
+defer { try? files.removeItem(at: staging) }
+let running = NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
+for app in running { app.terminate() }
+let deadline = Date().addingTimeInterval(15)
+while running.contains(where: { !$0.isTerminated }), Date() < deadline {
+    RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+}
+if running.contains(where: { !$0.isTerminated }) {
+    print("Computah did not respond to normal quit; stopping the old process for the requested restart.")
+    for app in running where !app.isTerminated { app.forceTerminate() }
+    let forceDeadline = Date().addingTimeInterval(5)
+    while running.contains(where: { !$0.isTerminated }), Date() < forceDeadline {
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+    }
+}
+guard running.allSatisfy({ $0.isTerminated }) else { throw InstallerError(message: "Could not stop old Computah; update cancelled") }
+let hadPrevious = files.fileExists(atPath: destination.path)
+if hadPrevious { try files.moveItem(at: destination, to: backup) }
+var launched: NSRunningApplication?
+do {
+    try files.moveItem(at: staging, to: destination)
+    var completed = false
+    var launchError: Error?
+    NSWorkspace.shared.openApplication(at: destination, configuration: .init()) { app, error in
+        launched = app; launchError = error; completed = true
+    }
+    let launchDeadline = Date().addingTimeInterval(20)
+    while !completed, Date() < launchDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.1)) }
+    guard completed, launchError == nil, let app = launched else {
+        throw launchError ?? NSError(domain: "ComputahRelease", code: 1)
+    }
+    let checkUntil = Date().addingTimeInterval(3)
+    while Date() < checkUntil { RunLoop.current.run(until: Date().addingTimeInterval(0.1)) }
+    guard !app.isTerminated else { throw InstallerError(message: "The new app exited during startup") }
+    guard app.bundleURL?.resolvingSymlinksInPath().path == destination.resolvingSymlinksInPath().path else {
+        throw InstallerError(message: "Launch returned an unexpected application path")
+    }
+    if hadPrevious { try? files.removeItem(at: backup) }
+    print("Running \(destination.path), PID \(app.processIdentifier)")
+} catch {
+    launched?.forceTerminate()
+    try? files.removeItem(at: destination)
+    if hadPrevious {
+        try files.moveItem(at: backup, to: destination)
+        NSWorkspace.shared.openApplication(at: destination, configuration: .init()) { _, _ in }
+    }
+    throw error
+}
+
+}
+
+do { try install() }
+catch {
+    fputs("Installation failed: \(error.localizedDescription)\n", stderr)
+    exit(1)
+}

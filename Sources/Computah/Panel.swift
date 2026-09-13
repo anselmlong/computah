@@ -275,7 +275,10 @@ struct IslandView: View {
                     WorkerCard(session: session, worker: session.worker,
                         onStop: { model.stopTask(session) }, onReview: { model.reviewTask(session) },
                         onAllow: { model.allowTaskApproval(session) },
-                        onDecline: { model.declineTaskApproval(session) })
+                        onDecline: { model.declineTaskApproval(session) },
+                        onAnswer: { requestID, answers in
+                            model.answerTaskQuestion(session, requestID: requestID, answers: answers)
+                        })
                 }
             }
         }
@@ -538,6 +541,7 @@ private struct WorkerCard: View {
     let onReview: () -> Void
     let onAllow: () -> Void
     let onDecline: () -> Void
+    let onAnswer: (String, [String: [String]]) -> Void
     @State private var showFullResult = false
 
     var body: some View {
@@ -563,6 +567,11 @@ private struct WorkerCard: View {
                         .accessibilityLabel("Don't allow for \(session.title)")
                 }
             }
+            ForEach(session.pendingQuestions) { request in
+                TaskQuestionForm(taskTitle: session.title, request: request,
+                    onSubmit: { onAnswer(request.id, $0) })
+                    .id(request.id)
+            }
             if !session.result.isEmpty {
                 Text(showFullResult ? session.result : String(session.result.prefix(300)))
                     .font(.system(size: 12)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
@@ -573,6 +582,74 @@ private struct WorkerCard: View {
             }
         }
         .padding(12).background(Color(white: 0.1), in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+private struct TaskQuestionForm: View {
+    let taskTitle: String
+    let request: CodexQuestionRequest
+    let onSubmit: ([String: [String]]) -> Void
+    @State private var answers: [String: String] = [:]
+
+    private var complete: Bool {
+        request.questions.allSatisfy {
+            !(answers[$0.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Codex needs your answer")
+                .font(.system(size: 12, weight: .semibold)).foregroundStyle(leaf)
+            ForEach(request.questions) { question in
+                VStack(alignment: .leading, spacing: 6) {
+                    if !question.header.isEmpty {
+                        Text(question.header).font(.system(size: 11, weight: .semibold)).foregroundStyle(secondaryInk)
+                    }
+                    Text(question.prompt).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+                    if !question.options.isEmpty {
+                        ForEach(Array(question.options.enumerated()), id: \.offset) { _, option in
+                            Button {
+                                answers[question.id] = option.label
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(option.label).font(.system(size: 11, weight: .medium))
+                                    if !option.description.isEmpty {
+                                        Text(option.description).font(.system(size: 10)).foregroundStyle(secondaryInk)
+                                    }
+                                }.frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(answers[question.id] == option.label ? leaf : secondaryInk)
+                        }
+                    }
+                    if question.options.isEmpty || question.allowsOther {
+                        if question.isSecret {
+                            SecureField("Private answer", text: answerBinding(question.id))
+                                .accessibilityLabel("Private answer for \(question.header.isEmpty ? taskTitle : question.header)")
+                        } else {
+                            TextField(question.options.isEmpty ? "Your answer" : "Another answer",
+                                      text: answerBinding(question.id))
+                                .accessibilityLabel("Answer for \(question.header.isEmpty ? taskTitle : question.header)")
+                        }
+                    }
+                }
+            }
+            Button("Send answer") {
+                let payload = Dictionary(uniqueKeysWithValues: request.questions.map {
+                    ($0.id, [answers[$0.id]!.trimmingCharacters(in: .whitespacesAndNewlines)])
+                })
+                onSubmit(payload)
+            }
+            .controlSize(.small).tint(leaf).disabled(!complete)
+            .accessibilityLabel("Send answers to \(taskTitle)")
+        }
+        .padding(10)
+        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 9))
+    }
+
+    private func answerBinding(_ id: String) -> Binding<String> {
+        Binding(get: { answers[id] ?? "" }, set: { answers[id] = $0 })
     }
 }
 

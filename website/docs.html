@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Set up Computah and see how its native Mac interface, voice conversation, screen understanding, and Codex computer workers fit together.">
+  <meta name="theme-color" content="#0b0d0b">
+  <link rel="canonical" href="https://computah.anselmlong.com/docs.html">
+  <link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+  <title>Setup &amp; architecture — Computah</title>
+  <script src="/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="header shell">
+    <a class="wordmark" href="/" aria-label="Computah home"><svg class="brand-face" viewBox="0 0 76 64" aria-hidden="true"><rect class="face-tile" width="76" height="64" rx="18"/><g transform="translate(0 7)"><g class="face-gaze"><g class="face-eyes"><rect class="face-eye" x="22" y="12" width="10" height="17" rx="5"/><rect class="face-eye" x="48" y="12" width="10" height="17" rx="5"/></g><path class="face-smile" d="M33 34 Q38 39 43 34"/></g></g></svg>computah<span>.</span></a>
+    <nav aria-label="Main navigation"><a href="https://youtu.be/WGbVYat8Lmg">Watch demo</a><a href="/#installation">Get Computah</a></nav>
+  </header>
+  <main id="main" class="docs shell">
+    <div class="docs-intro">
+      <h1>A little Computah.<br><span>Here’s how it works.</span></h1>
+      <p>A native Mac companion for talking about your screen and delegating computer work. Built for a hackathon, with spoken confirmation questions before consequential actions.</p>
+      <nav class="docs-nav" aria-label="On this page"><a href="#setup">Setup</a><a href="#costs">Usage costs</a><a href="#architecture">Architecture</a><a href="#data">Data &amp; limits</a><a href="#help">Troubleshooting</a></nav>
+    </div>
+    <section id="setup" class="docs-section">
+      <h2>Make yourself at home.</h2>
+      <p>You need an Apple silicon Mac with macOS 14 or later, internet access, and your own OpenAI API key for voice and screen reading. Those features use <code>gpt-live-1</code> and <code>gpt-5.6-luna</code>, with usage billed to your API account. Computer tasks need a compatible Codex CLI signed in to an account that can use <code>gpt-6-astra</code>, native Computer Use, and any required apps or plugins.</p>
+      <ol>
+        <li><strong>Download and open.</strong> Get the app from the <a href="/#installation">download section</a>, unzip it, and move Computah.app to Applications. This prototype is not notarized. Follow normal macOS security controls; do not disable system protections.</li>
+        <li><strong>Bring your own API key.</strong> Click the lime character at the top of the display, open Settings, paste your OpenAI API key, and save it to macOS Keychain. There is no Dock icon or separate menu bar item.</li>
+        <li><strong>Allow access.</strong> Microphone enables voice; Screen Recording enables screen context; Input Monitoring enables the conversation key. Use the permission controls in settings. Reopen the app if macOS requests it.</li>
+        <li><strong>Check Codex.</strong> Computah checks <code>/opt/homebrew/bin/codex</code>, <code>/usr/local/bin/codex</code>, and locations in its inherited PATH. Sign in with the normal Codex app or CLI before delegating computer work.</li>
+        <li><strong>Start talking.</strong> Tap Right Shift, or use Start talking. Hold the conversation key and drag to circle a region, then ask about it. Escape cancels the selection.</li>
+      </ol>
+      <p>Try: “Find the official NUS Master of Computing General Track admissions requirements and summarize them with source links.” Answer any native app approval in the task card. If the worker needs information or confirmation, Computah names the task, asks through the voice conversation, and returns your answer to that same waiting task. A text form in the task card is always available as a fallback.</p>
+    </section>
+    <section id="costs" class="docs-section">
+      <h2>Your key. Your usage.</h2>
+      <p>Computah is bring-your-own-key for voice and screen reading. The key is saved in macOS Keychain, and OpenAI bills that usage to your API account. Computer tasks use your signed-in Codex account instead.</p>
+      <p>Rates checked September 13, 2026, in USD before tax: <a href="https://developers.openai.com/api/docs/models/gpt-live-1">GPT-Live voice</a> is $0.05/minute, metered per second. <a href="https://developers.openai.com/api/docs/models/gpt-5.6-luna">Luna routing and vision</a> cost $0.20/$1.20 per million input/output tokens. Astra worker usage follows the signed-in Codex account's plan and limits.</p>
+      <dl class="docs-help">
+        <dt>Short demo · about $0.51</dt><dd>10 voice minutes; Luna 20,000 input / 2,000 output. Codex account usage is separate.</dd>
+        <dt>Research session · about $1.52</dt><dd>30 voice minutes; Luna 60,000 input / 6,000 output. Codex account usage is separate.</dd>
+        <dt>Heavier hour · about $3.04</dt><dd>60 voice minutes; Luna 120,000 input / 12,000 output. Codex account usage is separate.</dd>
+      </dl>
+      <p>These are illustrative API budgets, not measured or guaranteed costs. They assume uncached input and exclude retries, taxes, and Codex worker usage.</p>
+      <p>End voice when finished, and stop computer tasks separately when you no longer need them. Check the OpenAI usage dashboard for API charges and the Codex usage view for worker limits.</p>
+    </section>
+    <section id="architecture" class="docs-section">
+      <h2>One conversation.<br>Independent computer tasks.</h2>
+      <p>We built three cooperating parts: a native companion, a voice session, and a normal Codex worker for each delegated task. The Mac runs the interface and worker processes; the models run remotely.</p>
+      <ol class="architecture-flow">
+        <li><strong>Talk and point</strong><span>SwiftUI and AppKit host the notch panel. AVFoundation streams voice; ScreenCaptureKit captures the display and optional selected crop.</span></li>
+        <li><strong>Understand the request</strong><span>A routing model chooses conversation, screen interpretation, computer work, or showing an existing task. Vision returns text findings to the voice session.</span></li>
+        <li><strong>Use your Codex setup</strong><span>Each task gets a regular Codex app-server process requesting Astra with high reasoning effort. It uses your signed-in account, plugins, and native Computer Use in existing applications.</span></li>
+        <li><strong>Return to you</strong><span>Results and app approvals appear in the task panel. Worker questions are spoken through the active voice conversation and the answer returns to the same task.</span></li>
+      </ol>
+      <p>Separating task lifecycles lets voice continue while computer work runs. Ending voice leaves tasks running; quitting the app stops all workers. Ephemeral worker threads are not restored after relaunch. Computer Use shares your existing applications, so tasks are not isolated from your work or each other.</p>
+      <p>Swift Package Manager builds the app without third-party package dependencies. Hosted Mac CI checks the Swift code and release tooling. Tagged releases package the app and static website together, with a manifest and SHA-256 checksum for the download.</p>
+    </section>
+    <section id="data" class="docs-section">
+      <h2>Your context, with clear limits.</h2>
+      <p>Microphone audio goes to OpenAI during conversation. Available display images and a selected crop can be sent for routing and interpretation. <strong>Circling does not restrict sharing to the crop.</strong></p>
+      <p>The API key lives in macOS Keychain and is not passed to computer workers. Workers use your normal Codex home, signed-in account, configuration, and plugins. Native Computer Use works in existing applications and signed-in sessions rather than an isolated browser.</p>
+      <p>Workers run in YOLO mode with runtime approval policy <code>never</code> and sandbox mode <code>danger-full-access</code>. Native app and plugin approvals are separate gates and may still appear. The task instructions require explicit user confirmation before sending, submitting, paying, publishing, accepting terms, or finalizing, but the runtime does not enforce that rule.</p>
+      <p>Non-secret worker questions are spoken through the active voice conversation. Only the user's actual relevant answer returns to the matching task. Unrelated speech is not consumed and ambiguous replies cause a repeat. Every question also has a text form in its task card. Secret answers stay in private text fields and are excluded from voice transport.</p>
+      <p>This is a prototype, not complete operating-system or network isolation. Broad release still needs a full authenticated native Computer Use rehearsal, wider hardware validation, enforced review controls, and resource limits for long-running tasks.</p>
+    </section>
+    <section id="help" class="docs-section">
+      <h2>Get back to the conversation.</h2>
+      <dl class="docs-help">
+        <dt>The shortcut does nothing</dt><dd>Check Input Monitoring and the conversation-key setting. Start talking works without the shortcut.</dd>
+        <dt>The microphone or voice connection fails</dt><dd>Check input/output devices, the network, API key, and model access. Reopen the app and retry. Use headphones if the app reports that echo cancellation is unavailable.</dd>
+        <dt>A computer task stalls</dt><dd>Check the Codex installation, signed-in account, and any app or plugin approval shown in the task card. Use Stop task to end work that is no longer useful.</dd>
+        <dt>Are the screenshots a live AI run?</dt><dd>The site screenshots use native views with illustrative conversations and a fictional application. The browser images came from a retired local fixture, not the current native Computer Use runtime. They are separate from the <a href="https://youtu.be/WGbVYat8Lmg">demo video</a>.</dd>
+      </dl>
+    </section>
+  </main>
+  <footer class="shell"><a class="wordmark" href="/" aria-label="Computah home"><svg class="brand-face" viewBox="0 0 76 64" aria-hidden="true"><rect class="face-tile" width="76" height="64" rx="18"/><g transform="translate(0 7)"><g class="face-gaze"><g class="face-eyes"><rect class="face-eye" x="22" y="12" width="10" height="17" rx="5"/><rect class="face-eye" x="48" y="12" width="10" height="17" rx="5"/></g><path class="face-smile" d="M33 34 Q38 39 43 34"/></g></g></svg>computah<span>.</span></a><p>A little closer to your next chapter.</p><button class="motion-toggle" type="button" aria-pressed="false">Pause animation</button><a class="footer-link" href="https://youtu.be/WGbVYat8Lmg">Watch the demo</a></footer>
+</body>
+</html>

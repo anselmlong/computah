@@ -1,0 +1,34 @@
+{
+  "captured": "2026-09-13",
+  "sourceRepository": "https://github.com/anselmlong/computah2",
+  "interfaceRevision": "00032e9",
+  "renderer": "scripts/PitchPreviews.swift",
+  "fixture": "scripts/fixtures/masters-application.html",
+  "generatedByAI": false,
+  "authenticatedModelSession": false,
+  "realApplicantData": false,
+  "submissionPerformed": false,
+  "notes": "Rendered from SwiftUI and the former WebKit task runtime at revision 00032e9. Transcripts, task results, institution names, and application data are illustrative. The current app uses native Codex Computer Use instead. Captures reflect development source; website ZIP remains build 6. Pixels are unretouched. PNG metadata records provenance.",
+  "images": [
+    {
+      "file": "masters-conversation.png",
+      "scenario": "Native conversation panel with illustrative transcript; no microphone or model session.",
+      "sha256": "8134d17e4cf72710c5ceb5d07f2e5d30ba1145e296b5ca186a95e3e239eca06c"
+    },
+    {
+      "file": "masters-plan.png",
+      "scenario": "Native task panel with illustrative research and checklist results for fictional programs.",
+      "sha256": "dbc71aae62ae16a9fdc9b87c96d83248c594d3291ff93ada82dc8b30f8e82202"
+    },
+    {
+      "file": "masters-browser.png",
+      "scenario": "Retired WebKit fixture after browser_click and browser_type populated three sample form fields.",
+      "sha256": "73409d5dd82e01ae722d8cd2f5dcdcb647ff34f03c0754c12d1056569df39896"
+    },
+    {
+      "file": "masters-review.png",
+      "scenario": "Retired WebKit fixture after a submit-control click requested manual review and local takeover was exercised; no form submission.",
+      "sha256": "4e99e30cf59064f515fb59b3e5f75ea111244c385c70b412923f73cb763fdb96"
+    }
+  ]
+}

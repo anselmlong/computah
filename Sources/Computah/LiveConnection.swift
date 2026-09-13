@@ -78,6 +78,13 @@ final class LiveConnection {
 
     func send(_ event: [String: Any]) { guard ready, !closing else { return }; enqueue(event) }
 
+    @discardableResult
+    func askWorkerQuestion(_ question: WorkerQuestionEnvelope) -> Bool {
+        guard ready, !closing, question.isValid else { return false }
+        for event in LiveProtocol.workerQuestionContext(question) { enqueue(event) }
+        return true
+    }
+
     func audio(_ data: Data) {
         guard ready, !closing else { return }
         var bytes = pendingPCMByte

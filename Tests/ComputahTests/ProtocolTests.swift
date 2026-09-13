@@ -109,4 +109,51 @@ final class ProtocolTests: XCTestCase {
         XCTAssertThrowsError(try RouteService.parse(response(["route": "task", "task": "Find jobs", "requiresScreen": false, "tasks": [], "targetTask": NSNull()])))
         XCTAssertThrowsError(try RouteService.parse(response(["route": "task", "task": "Find jobs", "requiresScreen": false, "tasks": [" "], "targetTask": NSNull()])))
     }
+
+    func testWorkerQuestionContextPreservesOpaqueIdentityAndRequiresUserAnswer() throws {
+        let taskID = UUID(uuidString: "A9E03CF0-6CBE-4E19-A325-74A04748F3CB")!
+        let question = WorkerQuestionEnvelope(taskID: taskID, taskTitle: "Find regional Swift roles", requestID: "request-7", questionID: "question-2",
+            prompt: "Which region should I search?", options: ["Singapore", "New Zealand"])
+        XCTAssertTrue(question.isValid)
+        let events = LiveProtocol.workerQuestionContext(question)
+        XCTAssertFalse(events.isEmpty)
+        XCTAssertTrue(events.allSatisfy { $0["type"] as? String == "session.commentary.append" })
+        XCTAssertTrue(events.allSatisfy { $0["delegation_id"] is NSNull })
+        let content = events.compactMap { $0["content"] as? String }.joined()
+        XCTAssertTrue(content.contains(taskID.uuidString))
+        XCTAssertTrue(content.contains(question.taskTitle))
+        XCTAssertTrue(content.contains(question.requestID))
+        XCTAssertTrue(content.contains(question.questionID))
+        XCTAssertTrue(content.contains(question.prompt))
+        XCTAssertTrue(content.contains("Do not answer"))
+        XCTAssertTrue(content.contains("pause and listen"))
+        XCTAssertTrue(content.contains("Never read any opaque ID aloud"))
+        XCTAssertTrue(events.allSatisfy { (($0["content"] as? String) ?? "").utf8.count <= 480 })
+        XCTAssertNoThrow(try JSONSerialization.data(withJSONObject: events))
+    }
+
+    func testWorkerQuestionRejectsMissingIdentityOrPrompt() {
+        let taskID = UUID()
+        XCTAssertFalse(WorkerQuestionEnvelope(taskID: taskID, taskTitle: "Task", requestID: "", questionID: "question", prompt: "Question", options: []).isValid)
+        XCTAssertFalse(WorkerQuestionEnvelope(taskID: taskID, taskTitle: "Task", requestID: "request", questionID: " ", prompt: "Question", options: []).isValid)
+        XCTAssertFalse(WorkerQuestionEnvelope(taskID: taskID, taskTitle: "Task", requestID: "request", questionID: "question", prompt: "\n", options: []).isValid)
+        XCTAssertFalse(WorkerQuestionEnvelope(taskID: taskID, taskTitle: " ", requestID: "request", questionID: "question", prompt: "Question", options: []).isValid)
+    }
+
+    func testWorkerAnswerRoutingRequiresGroundedAnswerOnlyForAnswerKind() throws {
+        func response(kind: String, answer: String) throws -> [String: Any] {
+            let data = try JSONSerialization.data(withJSONObject: ["kind": kind, "answer": answer])
+            return ["status": "completed", "output": [["content": [["type": "output_text", "text": String(decoding: data, as: UTF8.self)]]]]]
+        }
+        let answer = try WorkerAnswerService.parse(response(kind: "answer", answer: "New Zealand"))
+        XCTAssertEqual(answer.kind, .answer)
+        XCTAssertEqual(answer.answer, "New Zealand")
+        XCTAssertEqual(try WorkerAnswerService.parse(response(kind: "unrelated", answer: "")).kind, .unrelated)
+        XCTAssertEqual(try WorkerAnswerService.parse(response(kind: "ambiguous", answer: "")).kind, .ambiguous)
+        XCTAssertThrowsError(try WorkerAnswerService.parse(response(kind: "answer", answer: " ")))
+        XCTAssertThrowsError(try WorkerAnswerService.parse(response(kind: "unrelated", answer: "Stop it")))
+        XCTAssertThrowsError(try WorkerAnswerService.parse(response(kind: "decline", answer: "No")))
+        let fabricated = WorkerAnswerDecision(kind: .answer, answer: "A choice the model invented")
+        XCTAssertEqual(WorkerAnswerService.ground(fabricated, in: "  the second one  ").answer, "the second one")
+    }
 }

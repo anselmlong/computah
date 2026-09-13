@@ -7,3 +7,6 @@ codedb.snapshot*
 .env.*
 *.xcuserstate
 xcuserdata/
+website/downloads/
+website/release.json
+__pycache__/

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 76 64">
+  <title>Computah lime companion</title>
+  <!-- Idle CompanionFace geometry from Sources/Computah/Panel.swift. -->
+  <rect width="76" height="64" rx="18" fill="#101210"/>
+  <g transform="translate(0 7)" fill="#d1f28c">
+    <rect x="22" y="12" width="10" height="17" rx="5"/>
+    <rect x="48" y="12" width="10" height="17" rx="5"/>
+    <path d="M33 34 Q38 39 43 34" fill="none" stroke="#d1f28c" stroke-width="2" stroke-linecap="round"/>
+  </g>
+</svg>

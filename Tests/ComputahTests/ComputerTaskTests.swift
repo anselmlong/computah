@@ -4,13 +4,14 @@ import AppKit
 
 final class ComputerTaskTests: XCTestCase {
     @MainActor
-    func testConcurrentTasksFinishCancelAndRequestReviewIndependently() async throws {
+    func testConcurrentTasksFinishCancelAndAnswerQuestionIndependently() async throws {
         _ = NSApplication.shared
         let peer = ComputerTaskTestPeer()
         let manager = peer.manager()
         let voiceID = UUID()
         var callbacks: [UUID: Int] = [:]
         var reviewed: [UUID: String] = [:]
+        var questions: [UUID: CodexQuestionRequest] = [:]
         var callbackDelegations: [UUID: Set<String>] = [:]
         manager.onResult = { session, _ in
             callbacks[session.id, default: 0] += 1
@@ -21,6 +22,10 @@ final class ComputerTaskTests: XCTestCase {
             reviewed[session.id] = text
             callbackDelegations[session.id] = session.delegationIDs
             XCTAssertFalse(session.worker.running)
+            XCTAssertEqual(session.voiceSessionID, voiceID)
+        }
+        manager.onQuestion = { session, request in
+            questions[session.id] = request
             XCTAssertEqual(session.voiceSessionID, voiceID)
         }
         let first = manager.start(task: "Research the first job", context: "", apiKey: "dummy-no-real-credentials", delegationIDs: ["first-delegation"], voiceSessionID: voiceID)
@@ -54,10 +59,29 @@ final class ComputerTaskTests: XCTestCase {
         XCTAssertEqual(third.state, .working)
         XCTAssertTrue(third.worker.running)
 
-        peer.requestReview(2, question: "Review the third job.")
-        try await waitUntil { third.state == .review }
+        peer.requestQuestions(2)
+        try await waitUntil { third.pendingQuestions.count == 1 }
         XCTAssertEqual(callbacks[first.id], 1)
-        XCTAssertEqual(reviewed[third.id], "Review the third job.")
+        XCTAssertNil(reviewed[third.id])
+        XCTAssertEqual(third.state, .working)
+        XCTAssertTrue(third.worker.running)
+        let request = try XCTUnwrap(questions[third.id])
+        XCTAssertEqual(request.id, "s:questions-rpc-2")
+        XCTAssertEqual(request.itemID, "questions-2")
+        XCTAssertEqual(request.questions.map(\.id), ["school", "account"])
+        XCTAssertEqual(request.questions[0].options.map(\.label), ["UCLA", "Berkeley"])
+        XCTAssertTrue(request.questions[0].allowsOther)
+        XCTAssertTrue(request.questions[1].isSecret)
+        try third.answerPendingQuestion(requestID: request.id, answers: [
+            "school": ["UCLA"],
+            "account": ["private answer"]
+        ])
+        XCTAssertTrue(third.pendingQuestions.isEmpty)
+        XCTAssertEqual(third.state, .working)
+        XCTAssertTrue(third.worker.running)
+        peer.finish(2, text: "Third job finished after the answer.")
+        try await waitUntil { third.state == .completed }
+        XCTAssertEqual(third.result, "Third job finished after the answer.")
         XCTAssertEqual(callbackDelegations[first.id], ["first-delegation", "late-first-delegation"])
         XCTAssertEqual(callbackDelegations[second.id], ["second-delegation"])
         XCTAssertEqual(callbackDelegations[third.id], ["third-delegation"])
@@ -67,8 +91,8 @@ final class ComputerTaskTests: XCTestCase {
         manager.stopAll()
         XCTAssertEqual(first.state, .completed)
         XCTAssertEqual(first.result, "First job researched.")
-        XCTAssertEqual(third.state, .review)
-        XCTAssertEqual(third.result, "Review the third job.")
+        XCTAssertEqual(third.state, .completed)
+        XCTAssertEqual(third.result, "Third job finished after the answer.")
         XCTAssertEqual(manager.sessions.count, 3)
         XCTAssertFalse(manager.sessions.contains { $0.worker.running })
         XCTAssertEqual(callbacks[second.id], 1)
@@ -145,7 +169,7 @@ private final class ComputerTaskTestPeer {
         ComputerTaskManager(workerFactory: { browser in
             let index = self.nextIndex
             self.nextIndex += 1
-            return CodexWorker(browser: browser, rpcFactory: { _, _, environment, directory in
+            return CodexWorker(browser: browser, resolveExecutable: { URL(fileURLWithPath: "/bin/sh") }, rpcFactory: { _, _, environment, directory in
                 let script = """
                 IFS= read -r fixture_line
                 printf '%s\\n' '{"id":1,"result":{}}'
@@ -182,11 +206,24 @@ private final class ComputerTaskTestPeer {
         ])
     }
 
-    func requestReview(_ index: Int, question: String) {
-        emit(index, method: "item/tool/requestUserInput", id: "review-rpc-\(index)", params: [
-            "threadId": "thread-\(index)", "turnId": "turn-\(index)", "itemId": "review-\(index)",
+    func requestQuestions(_ index: Int) {
+        emit(index, method: "item/tool/requestUserInput", id: "questions-rpc-\(index)", params: [
+            "threadId": "thread-\(index)", "turnId": "turn-\(index)", "itemId": "questions-\(index)",
             "isBlocking": true,
-            "questions": [["header": "Review", "id": "review", "question": question]]
+            "questions": [
+                [
+                    "header": "School", "id": "school", "question": "Which school should I use?",
+                    "options": [
+                        ["label": "UCLA", "description": "Use the UCLA application."],
+                        ["label": "Berkeley", "description": "Use the Berkeley application."]
+                    ],
+                    "isOther": true, "isSecret": false
+                ],
+                [
+                    "header": "Account", "id": "account", "question": "Enter the private account detail.",
+                    "options": [], "isOther": false, "isSecret": true
+                ]
+            ]
         ])
     }
 
