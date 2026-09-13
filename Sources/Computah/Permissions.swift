@@ -2,6 +2,7 @@ import AppKit
 import AVFoundation
 import ApplicationServices
 import ScreenCaptureKit
+import IOKit.hidsystem
 
 enum ScreenAccessStatus: Equatable, Sendable {
     case available
@@ -43,7 +44,7 @@ enum Permissions {
     static func read() -> PermissionStatus {
         .init(microphoneAllowed: AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
               screenAllowed: CGPreflightScreenCaptureAccess(),
-              inputMonitoringAllowed: CGPreflightListenEventAccess(),
+              inputMonitoringAllowed: hasInputMonitoringAccess(),
               accessibilityAllowed: AXIsProcessTrusted())
     }
 
@@ -148,10 +149,47 @@ enum Permissions {
 
     @discardableResult
     static func requestInputMonitoring() -> Bool {
-        if CGPreflightListenEventAccess() { return true }
-        _ = CGRequestListenEventAccess()
-        let allowed = CGPreflightListenEventAccess()
-        if !allowed { openInputMonitoringSettings() }
+        // Apple DTS recommends IOHIDRequestAccess to register an app in the Input
+        // Monitoring list. Request it only for an explicit Allow/Renew action.
+        requestInputMonitoring(check: hasInputMonitoringAccess,
+                               request: { IOHIDRequestAccess(kIOHIDRequestTypeListenEvent) },
+                               openSettings: openInputMonitoringSettings)
+    }
+
+    static func hasInputMonitoringAccess() -> Bool {
+        inputMonitoringAccess(coreGraphics: CGPreflightListenEventAccess(),
+                              hidGranted: IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) == kIOHIDAccessTypeGranted)
+    }
+
+    nonisolated static func inputMonitoringAccess(coreGraphics: Bool, hidGranted: Bool) -> Bool {
+        coreGraphics || hidGranted
+    }
+
+    static func requestInputMonitoring(check: () -> Bool, request: () -> Bool,
+                                       openSettings: () -> Void) -> Bool {
+        if check() { return true }
+        let requested = request()
+        let allowed = check()
+        // The request result alone must not become a persisted permission flag.
+        // If approval is not yet usable, guide the user to Settings and its reopen flow.
+        if !allowed && !requested { openSettings() }
+        return allowed
+    }
+
+    @discardableResult
+    static func requestAccessibility() -> Bool {
+        requestAccessibility(check: AXIsProcessTrusted, request: {
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+            return AXIsProcessTrustedWithOptions(options as CFDictionary)
+        }, openSettings: openAccessibilitySettings)
+    }
+
+    static func requestAccessibility(check: () -> Bool, request: () -> Bool,
+                                      openSettings: () -> Void) -> Bool {
+        if check() { return true }
+        _ = request()
+        let allowed = check()
+        if !allowed { openSettings() }
         return allowed
     }
 

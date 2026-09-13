@@ -4,7 +4,7 @@ import AppKit
 
 final class ComputerTaskTests: XCTestCase {
     @MainActor
-    func testConcurrentTasksKeepIndependentWorkersBrowsersAndDelegations() async throws {
+    func testConcurrentTasksFinishCancelAndRequestReviewIndependently() async throws {
         _ = NSApplication.shared
         let peer = ComputerTaskTestPeer()
         let manager = peer.manager()
@@ -21,6 +21,7 @@ final class ComputerTaskTests: XCTestCase {
             reviewed[session.id] = text
             callbackDelegations[session.id] = session.delegationIDs
             XCTAssertFalse(session.worker.running)
+            XCTAssertEqual(session.voiceSessionID, voiceID)
         }
         let first = manager.start(task: "Research the first job", context: "", apiKey: "dummy-no-real-credentials", delegationIDs: ["first-delegation"], voiceSessionID: voiceID)
         let second = manager.start(task: "Prepare the second job", context: "", apiKey: "dummy-no-real-credentials", delegationIDs: ["second-delegation"], voiceSessionID: voiceID)
@@ -31,9 +32,10 @@ final class ComputerTaskTests: XCTestCase {
         XCTAssertEqual(Set(manager.sessions.map(\.id)).count, 3)
         XCTAssertTrue(manager.sessions.allSatisfy { $0.worker.running })
         XCTAssertFalse(first.worker === second.worker)
-        XCTAssertFalse(first.browser === second.browser)
-        XCTAssertFalse(first.browser.webView === third.browser.webView)
-        XCTAssertFalse(first.browser.webView.configuration.websiteDataStore === third.browser.webView.configuration.websiteDataStore)
+        XCTAssertFalse(first.worker === third.worker)
+        XCTAssertEqual(first.delegationIDs, ["first-delegation"])
+        XCTAssertEqual(second.delegationIDs, ["second-delegation"])
+        XCTAssertEqual(third.delegationIDs, ["third-delegation"])
 
         // A completion from another task cannot terminate this worker.
         peer.emit(0, method: "turn/completed", params: ["threadId": "thread-2", "turn": ["id": "turn-2", "status": "completed"]])
@@ -45,18 +47,20 @@ final class ComputerTaskTests: XCTestCase {
         XCTAssertTrue(third.worker.running)
         XCTAssertEqual(callbacks[second.id], 1)
 
+        first.addDelegations(["late-first-delegation"])
         peer.finish(0, text: "First job researched.")
-        peer.emit(2, method: "item/tool/call", id: "third-review-rpc", params: [
-            "threadId": "thread-2", "turnId": "turn-2", "callId": "third-review", "namespace": NSNull(),
-            "tool": "browser_request_review", "arguments": ["reason": "Review the third job."]
-        ])
-        try await waitUntil { first.state == .completed && third.state == .review }
+        try await waitUntil { first.state == .completed }
+        XCTAssertEqual(first.result, "First job researched.")
+        XCTAssertEqual(third.state, .working)
+        XCTAssertTrue(third.worker.running)
+
+        peer.requestReview(2, question: "Review the third job.")
+        try await waitUntil { third.state == .review }
         XCTAssertEqual(callbacks[first.id], 1)
         XCTAssertEqual(reviewed[third.id], "Review the third job.")
-        XCTAssertEqual(callbackDelegations[first.id], ["first-delegation"])
+        XCTAssertEqual(callbackDelegations[first.id], ["first-delegation", "late-first-delegation"])
         XCTAssertEqual(callbackDelegations[second.id], ["second-delegation"])
         XCTAssertEqual(callbackDelegations[third.id], ["third-delegation"])
-        first.addDelegations(["late-first-delegation"])
         XCTAssertEqual(first.delegationIDs, ["first-delegation", "late-first-delegation"])
         XCTAssertEqual(callbacks[first.id], 1)
 
@@ -94,58 +98,31 @@ final class ComputerTaskTests: XCTestCase {
     }
 
     @MainActor
-    func testManualTakeoverChangesOnlyItsSessionAndCompletesReviewOnce() async throws {
+    func testNativeAppApprovalKeepsSessionActiveAndCompletionStillWins() async throws {
         _ = NSApplication.shared
         let peer = ComputerTaskTestPeer()
         let manager = peer.manager()
-        var reviews: [UUID: Int] = [:]
-        var results: [UUID: Int] = [:]
-        manager.onReview = { session, _ in reviews[session.id, default: 0] += 1 }
-        manager.onResult = { session, _ in results[session.id, default: 0] += 1 }
-        let first = manager.start(task: "Review this task manually", context: "", apiKey: "dummy-no-real-credentials")
-        let second = manager.start(task: "Continue another task", context: "", apiKey: "dummy-no-real-credentials")
+        var reviews = 0
+        var results = 0
+        manager.onReview = { _, _ in reviews += 1 }
+        manager.onResult = { _, _ in results += 1 }
+        let session = manager.start(task: "Read Calculator", context: "", apiKey: "voice-key-is-not-worker-auth")
         defer { manager.stopAll() }
-        try await waitUntil { first.state == .working && second.state == .working }
-        first.takeOver()
-        first.takeOver()
-        XCTAssertEqual(first.state, .manualReview)
-        XCTAssertTrue(first.browser.manualControl)
-        XCTAssertFalse(first.worker.running)
-        XCTAssertEqual(reviews[first.id], 1)
-        XCTAssertNil(results[first.id])
-        XCTAssertEqual(second.state, .working)
-        XCTAssertTrue(second.worker.running)
-        XCTAssertFalse(second.browser.manualControl)
-        peer.finish(0, text: "A stale result must be ignored.")
-        XCTAssertEqual(first.state, .manualReview)
-        XCTAssertFalse(first.result.contains("stale result"))
-        manager.stopAll()
-        XCTAssertEqual(first.state, .manualReview)
-        XCTAssertEqual(reviews[first.id], 1)
-        XCTAssertNil(results[first.id])
-        XCTAssertEqual(second.state, .cancelled)
-        XCTAssertEqual(results[second.id], 1)
-    }
-
-    @MainActor
-    func testBrowsingAndFailedSessionsRemainAvailableWithoutStartingOtherWorkers() async throws {
-        _ = NSApplication.shared
-        let peer = ComputerTaskTestPeer()
-        let manager = peer.manager()
-        let browsing = manager.createBrowsingSession(title: "Browse manually")
-        XCTAssertEqual(browsing.state, .manualReview)
-        XCTAssertTrue(browsing.browser.manualControl)
-        XCTAssertFalse(browsing.worker.running)
-        var callbacks: [UUID] = []
-        manager.onResult = { session, _ in callbacks.append(session.id) }
-        let failures = (0..<4).map { manager.start(task: "Task \($0)", context: "", apiKey: "") }
-        try await waitUntil { failures.allSatisfy { $0.state == .failed } }
-        XCTAssertEqual(Set(callbacks), Set(failures.map(\.id)))
-        XCTAssertEqual(peer.connections.count, 0)
-        manager.stopAll()
-        XCTAssertEqual(manager.sessions.count, 5)
-        XCTAssertTrue(failures.allSatisfy { $0.state == .failed })
-        XCTAssertEqual(browsing.state, .manualReview)
+        try await waitUntil { session.state == .working }
+        peer.requestAppApproval(0, message: "Allow Calculator for this task?")
+        try await waitUntil { session.state == .review }
+        XCTAssertTrue(session.worker.running)
+        XCTAssertTrue(session.approvalPending)
+        XCTAssertTrue(session.approvalCanBeAccepted)
+        XCTAssertEqual(reviews, 1)
+        XCTAssertEqual(results, 0)
+        try session.allowPendingApproval()
+        XCTAssertEqual(session.state, .working)
+        XCTAssertTrue(session.worker.running)
+        peer.finish(0, text: "Calculator is visible.")
+        try await waitUntil { session.state == .completed }
+        XCTAssertEqual(session.result, "Calculator is visible.")
+        XCTAssertEqual(results, 1)
     }
 
     @MainActor
@@ -174,8 +151,9 @@ private final class ComputerTaskTestPeer {
                 printf '%s\\n' '{"id":1,"result":{}}'
                 IFS= read -r fixture_line
                 IFS= read -r fixture_line
-                printf '%s\\n' '{"id":2,"result":{"model":"gpt-5.6-sol","modelProvider":"computah_openai","thread":{"id":"thread-\(index)"}}}'
+                printf '%s\\n' '{"id":2,"result":{"model":"gpt-6-astra","modelProvider":"openai","thread":{"id":"thread-\(index)"}}}'
                 IFS= read -r fixture_line
+                printf '%s\\n' '{"method":"turn/started","params":{"threadId":"thread-\(index)","turn":{"id":"turn-\(index)"}}}'
                 printf '%s\\n' '{"id":3,"result":{"turn":{"id":"turn-\(index)"}}}'
                 while IFS= read -r fixture_line; do :; done
                 """
@@ -201,6 +179,23 @@ private final class ComputerTaskTestPeer {
         ])
         emit(index, method: "turn/completed", params: [
             "threadId": "thread-\(index)", "turn": ["id": "turn-\(index)", "status": "completed"]
+        ])
+    }
+
+    func requestReview(_ index: Int, question: String) {
+        emit(index, method: "item/tool/requestUserInput", id: "review-rpc-\(index)", params: [
+            "threadId": "thread-\(index)", "turnId": "turn-\(index)", "itemId": "review-\(index)",
+            "isBlocking": true,
+            "questions": [["header": "Review", "id": "review", "question": question]]
+        ])
+    }
+
+    func requestAppApproval(_ index: Int, message: String) {
+        emit(index, method: "mcpServer/elicitation/request", id: "approval-rpc-\(index)", params: [
+            "threadId": "thread-\(index)", "turnId": "turn-\(index)", "serverName": "computer-use",
+            "mode": "form", "message": message,
+            "requestedSchema": ["type": "object", "properties": [:], "required": []],
+            "_meta": ["codex_approval_kind": "mcp_tool_call"]
         ])
     }
 }

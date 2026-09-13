@@ -11,5 +11,6 @@
   <key>LSUIElement</key><true/>
   <key>NSMicrophoneUsageDescription</key><string>Computah listens while you have a voice conversation.</string>
   <key>NSScreenCaptureUsageDescription</key><string>Computah includes your current display and circled region when you ask about your screen.</string>
+  <key>NSAppleEventsUsageDescription</key><string>Computah works with other apps to complete the computer tasks you request.</string>
   <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
