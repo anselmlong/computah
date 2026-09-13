@@ -90,11 +90,13 @@ swift test
 zsh scripts/build.sh
 ```
 
-Latest source verification (2026-09-13, working tree after `00032e9`): debug and release compilation passed and `git diff --check` passed. Standalone protocol probes using production code verified that live search events complete normally and native execution events still stop the worker. `swift test` could not compile the test target because the local toolchain could not find `XCTest`; this is a blocked test run, not a passing suite. Tests cover protocol handling, audio conversion, permissions, credentials, hotkeys, executable discovery, worker restrictions, and concurrent browser tasks. Run them with an Xcode toolchain that provides XCTest.
+Hosted CI verification (2026-09-13, `88e2577`): the Swift suite executed 53 tests with zero failures and one skip (Codex CLI is absent on the hosted Mac), and all five release-script tests passed. The fake-worker fixtures no longer require a real Codex installation. [CI run](https://github.com/anselmlong/computah2/actions/runs/34757008698).
+
+Earlier local source verification (2026-09-13, working tree after `00032e9`): debug and release compilation passed and `git diff --check` passed. Standalone protocol probes using production code verified that live search events complete normally and native execution events still stop the worker. `swift test` could not compile the test target because the local toolchain could not find `XCTest`; this is a blocked test run, not a passing suite. Tests cover protocol handling, audio conversion, permissions, credentials, hotkeys, executable discovery, worker restrictions, and concurrent browser tasks. Run them with an Xcode toolchain that provides XCTest.
 
 Authenticated text routing and browser research were exercised with the saved app credential and Codex 0.154.0: the NUS Master of Computing General Track request reached the official program and admissions pages and produced a sourced summary without submitting anything. Early runs still navigated search-engine pages; enabling the custom provider’s standalone search capability exposed actual web-search events and navigation directly to the official admissions URL. Full voice/vision execution and a real application portal remain unverified.
 
-Signed app packaging was blocked because this session had no valid Apple Development or Developer ID signing identity. These source changes have not replaced the installed app or the website download.
+Signed app packaging was blocked because this session had no valid Apple Development or Developer ID signing identity. The version-tag pipeline now supports explicit ad hoc development signing for the existing prototype; Developer ID signing still requires an Apple identity.
 
 Earlier development notes report that, with the user's authorization, local hardware tests verified nonzero microphone input after multichannel conversion, echo cancellation, and output completion through the mixer and audio device. The tests did not save audio or send it to an API. These checks do not verify a complete model conversation.
 

@@ -52,3 +52,7 @@ cd ~/.local/share/computah-release-runner
 ```
 
 Removing the launch agent does not remove the runner registration. Remove the offline runner in the repository's Settings → Actions → Runners when retiring this Mac. Vercel's deployment history retains earlier site/download versions for a deliberate production rollback.
+
+## Verification record
+
+On 2026-09-13, the Mac runner registered and came online. Local dry-run packaging produced a valid 0.1.1 app ZIP and matching manifest; a Vercel preview deployment succeeded without modifying production. Hosted CI at `88e2577` passed 53 Swift tests with one expected installed-Codex skip and five release tests. Initial CI exposed and prompted a fix to fake-worker executable discovery.

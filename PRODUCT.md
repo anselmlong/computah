@@ -35,7 +35,7 @@ Have a spoken conversation about what is on screen, point by circling, and deleg
 
 The user chose Swift and asked to see the first version while development continued, explicitly waiving the understanding checkpoint for this implementation. The worker starts with an isolated temporary home and requests read-only access, with built-in execution tools disabled. It does not reuse the user's Codex configuration or account plugins.
 
-This version builds locally and includes automated tests. The latest local test run is blocked by missing XCTest in the active toolchain; see README.md for dated verification status. Authenticated text routing and browser research have been verified against the official NUS Master of Computing General Track pages. Full voice/vision execution and a real application portal remain unverified.
+This version builds locally and includes automated tests. Hosted CI passes the Swift suite (53 tests, one installed-CLI check skipped) and release tests. Local XCTest remains unavailable in the command-line-only toolchain; see README.md for dated verification status. Authenticated text routing and browser research have been verified against the official NUS Master of Computing General Track pages. Full voice/vision execution and a real application portal remain unverified.
 
 ## Brand commitments
 

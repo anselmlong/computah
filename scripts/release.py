@@ -126,7 +126,9 @@ def main():
         verify_deployment(config["production_url"].rstrip("/"), metadata)
         installer = ROOT / ".build/install-release"
         run("swiftc", ROOT / "scripts/InstallRelease.swift", "-o", installer)
-        run(installer, app, Path(config["install_directory"]) / "Computah.app")
+        # This GUI app must outlive the Actions job's child-process cleanup.
+        install_env = {key: value for key, value in os.environ.items() if key != "RUNNER_TRACKING_ID"}
+        run(installer, app, Path(config["install_directory"]) / "Computah.app", env=install_env)
         print("Production download verified; the same app is installed and running.")
 
 
