@@ -33,7 +33,8 @@ final class AppModel: ObservableObject {
     @Published var findings = ""
     @Published var selected = false
     @Published var shortcutAvailable = false
-    @Published var inputMonitoringAllowed = CGPreflightListenEventAccess()
+    @Published var inputMonitoringAllowed = Permissions.hasInputMonitoringAccess()
+    @Published var accessibilityAllowed = AXIsProcessTrusted()
     @Published var shortcut: HotkeyModifier = .rightShift {
         didSet {
             hotkey.modifier = shortcut
@@ -65,9 +66,11 @@ final class AppModel: ObservableObject {
     let hotkey = HotkeyController()
     let selection = SelectionController()
     let taskManager = ComputerTaskManager()
+    var codexInstalled: Bool { CodexWorkerProtocol.isInstalled }
+    var codexInstallationStatus: String { CodexWorkerProtocol.installationStatus }
     var tasks: [ComputerTaskSession] { taskManager.sessions }
     var runningTaskCount: Int { tasks.filter { $0.state.isActive }.count }
-    var credentialsInUse: Bool { active || runningTaskCount > 0 }
+    var credentialsInUse: Bool { active }
     private var ledger = TranscriptLedger()
     private var generation = UUID()
     private var captureTask: Task<ScreenSnapshot, Error>?
@@ -91,7 +94,17 @@ final class AppModel: ObservableObject {
     private var batches: [UUID: TaskBatch] = [:]
     private var sessionBatches: [UUID: UUID] = [:]
     private var lastBatchID: UUID?
-    private var lastShownSessionID: UUID?
+    private var lastBrowserAcknowledgment = ""
+    private struct WorkerRequestKey: Hashable {
+        let taskID: UUID
+        let requestID: String
+    }
+    private var workerQuestionQueue: [WorkerQuestionEnvelope] = []
+    private var activeWorkerQuestion: WorkerQuestionEnvelope?
+    private var workerQuestionAnswers: [WorkerRequestKey: [String: [String]]] = [:]
+    private var workerQuestionOutputObserved = false
+    private var workerQuestionAnswerReady = false
+    private var workerQuestionArmTask: Task<Void, Never>?
     private var managerObservation: AnyCancellable?
     private let credentialStore: any CredentialStore
     private var savedKey: String?
@@ -109,6 +122,7 @@ final class AppModel: ObservableObject {
         managerObservation = taskManager.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         taskManager.onResult = { [weak self] session, result in self?.taskFinished(session, result: result, review: false) }
         taskManager.onReview = { [weak self] session, result in self?.taskFinished(session, result: result, review: true) }
+        taskManager.onQuestion = { [weak self] session, request in self?.taskAskedQuestion(session, request: request) }
         if loadCredentials {
             do {
                 if let key = try credentialStore.load() { apiKey = key; savedKey = key; keySaved = true }
@@ -124,6 +138,10 @@ final class AppModel: ObservableObject {
         audio.onPlaybackState = { [weak self] speaking in
             guard let self, self.active else { return }
             self.state = speaking ? .speaking : (self.reading ? .looking : .listening)
+            if !speaking, self.workerQuestionOutputObserved, self.activeWorkerQuestion != nil {
+                self.workerQuestionAnswerReady = true
+                self.workerQuestionArmTask?.cancel()
+            }
         }
         audio.onFailure = { [weak self] in self?.fail($0) }
         audio.onNotice = { [weak self] notice in self?.audioNotice = notice.isEmpty ? nil : notice }
@@ -187,6 +205,9 @@ final class AppModel: ObservableObject {
         audio.stop(); live.close(); level = 0; state = .stopped
         snapshot = nil; selected = false; selectedCrop = nil; contextLabel = "Screen context is off until you start"
         pendingDelegations.removeAll(); lastBatchID = nil
+        workerQuestionQueue.removeAll(); activeWorkerQuestion = nil
+        workerQuestionOutputObserved = false; workerQuestionAnswerReady = false
+        workerQuestionArmTask?.cancel(); workerQuestionArmTask = nil
         updateWakeListening()
     }
 
@@ -234,7 +255,9 @@ final class AppModel: ObservableObject {
     func stopAllTasks() { taskManager.stopAll() }
 
     @discardableResult
-    func showBrowser(target: String? = nil) -> String {
+    func showBrowser(target: String? = nil) async -> String {
+        guard !Task.isCancelled else { return "The task request was cancelled." }
+        guard codexInstalled else { return codexInstallationStatus }
         let session: ComputerTaskSession
         if let target, !target.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             let exact = tasks.filter { $0.title.caseInsensitiveCompare(target) == .orderedSame }
@@ -243,14 +266,207 @@ final class AppModel: ObservableObject {
                 return matches.isEmpty ? "No task named \(target) was found. Ask which task's browser to show." : "Several tasks match \(target). Ask the user to choose one in the task list."
             }
             session = match
-        } else { session = tasks.last ?? taskManager.createBrowsingSession() }
-        reviewing = false; lastShownSessionID = session.id
-        return session.showBrowser() ? "Browser for \(session.title) is open. Existing work continues; no navigation was performed." : "The browser window could not be opened."
+        } else {
+            guard let latest = tasks.last else { return "There is no Codex task to show yet." }
+            session = latest
+        }
+        reviewing = false
+        do {
+            let focused = try await session.showBrowser()
+            return focused ? "Opened the task workspace for \(session.title). Existing work continues." : "The task workspace could not be opened."
+        } catch { return error.localizedDescription }
     }
 
-    func openBrowser(_ session: ComputerTaskSession) { reviewing = false; lastShownSessionID = session.id; session.showBrowser() }
-    func reviewTask(_ session: ComputerTaskSession) { reviewing = false; settings = false; expanded = true; session.review() }
-    func closeBrowser() { for session in tasks { session.closeBrowser() } }
+    func openBrowser(_ session: ComputerTaskSession) {
+        reviewing = false
+        Task {
+            do { _ = try await session.showBrowser() }
+            catch { self.error = error.localizedDescription; self.expanded = true }
+        }
+    }
+    func reviewTask(_ session: ComputerTaskSession) {
+        reviewing = false; settings = false; expanded = true
+        Task {
+            do { try await session.review() }
+            catch { self.error = error.localizedDescription }
+        }
+    }
+
+    func allowTaskApproval(_ session: ComputerTaskSession) {
+        do {
+            try session.allowPendingApproval()
+            error = nil
+        } catch {
+            self.error = error.localizedDescription
+            expanded = true
+        }
+    }
+
+    func declineTaskApproval(_ session: ComputerTaskSession) {
+        session.declinePendingApproval()
+    }
+
+    func answerTaskQuestion(_ session: ComputerTaskSession, requestID: String,
+                            answers: [String: [String]]) {
+        do {
+            try session.answerPendingQuestion(requestID: requestID, answers: answers)
+            clearVoiceQuestions(taskID: session.id, requestID: requestID)
+            error = nil
+            presentNextWorkerQuestion()
+        } catch {
+            self.error = error.localizedDescription
+            expanded = true
+        }
+    }
+
+    func refreshCodexStatus() { objectWillChange.send() }
+
+    private func taskAskedQuestion(_ session: ComputerTaskSession, request: CodexQuestionRequest) {
+        expanded = true
+        enqueueVoiceQuestions(session: session, request: request)
+        presentNextWorkerQuestion()
+    }
+
+    private func enqueueVoiceQuestions(session: ComputerTaskSession, request: CodexQuestionRequest) {
+        // Keep mixed requests together in the local form so a private answer never
+        // causes the user to repeat answers already spoken for the same request.
+        guard !request.questions.contains(where: \.isSecret) else { return }
+        let key = WorkerRequestKey(taskID: session.id, requestID: request.id)
+        let answered = workerQuestionAnswers[key] ?? [:]
+        for question in request.questions where !question.isSecret && answered[question.id] == nil {
+            let envelope = WorkerQuestionEnvelope(taskID: session.id, taskTitle: session.title,
+                requestID: request.id, questionID: question.id, prompt: question.prompt,
+                options: question.options.map(\.label))
+            guard envelope.isValid, activeWorkerQuestion != envelope,
+                  !workerQuestionQueue.contains(envelope) else { continue }
+            workerQuestionQueue.append(envelope)
+        }
+    }
+
+    private func rebuildWorkerQuestionQueue() {
+        workerQuestionQueue.removeAll()
+        activeWorkerQuestion = nil
+        workerQuestionOutputObserved = false
+        workerQuestionAnswerReady = false
+        let currentKeys = Set(tasks.flatMap { session in
+            session.pendingQuestions.map { WorkerRequestKey(taskID: session.id, requestID: $0.id) }
+        })
+        workerQuestionAnswers = workerQuestionAnswers.filter { currentKeys.contains($0.key) }
+        for session in tasks {
+            for request in session.pendingQuestions { enqueueVoiceQuestions(session: session, request: request) }
+        }
+    }
+
+    private func presentNextWorkerQuestion() {
+        guard active, activeWorkerQuestion == nil else { return }
+        while !workerQuestionQueue.isEmpty {
+            let next = workerQuestionQueue.removeFirst()
+            guard pendingQuestion(next) != nil else { continue }
+            activeWorkerQuestion = next
+            workerQuestionOutputObserved = false
+            workerQuestionAnswerReady = false
+            if live.askWorkerQuestion(next) { return }
+            activeWorkerQuestion = nil
+            workerQuestionQueue.insert(next, at: 0)
+            return
+        }
+    }
+
+    private func observeWorkerQuestionOutput() {
+        guard activeWorkerQuestion != nil, !workerQuestionAnswerReady else { return }
+        workerQuestionOutputObserved = true
+        workerQuestionArmTask?.cancel()
+        workerQuestionArmTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled, let self, self.activeWorkerQuestion != nil,
+                  self.workerQuestionOutputObserved else { return }
+            self.workerQuestionAnswerReady = true
+        }
+    }
+
+    private func pendingQuestion(_ envelope: WorkerQuestionEnvelope) -> CodexQuestion? {
+        tasks.first(where: { $0.id == envelope.taskID })?.pendingQuestions
+            .first(where: { $0.id == envelope.requestID })?.questions
+            .first(where: { $0.id == envelope.questionID })
+    }
+
+    private func clearVoiceQuestions(taskID: UUID, requestID: String) {
+        let key = WorkerRequestKey(taskID: taskID, requestID: requestID)
+        workerQuestionAnswers.removeValue(forKey: key)
+        workerQuestionQueue.removeAll { $0.taskID == taskID && $0.requestID == requestID }
+        if activeWorkerQuestion?.taskID == taskID && activeWorkerQuestion?.requestID == requestID {
+            activeWorkerQuestion = nil
+            workerQuestionOutputObserved = false
+            workerQuestionAnswerReady = false
+            workerQuestionArmTask?.cancel()
+        }
+    }
+
+    private func clearVoiceQuestions(taskID: UUID) {
+        workerQuestionAnswers = workerQuestionAnswers.filter { $0.key.taskID != taskID }
+        workerQuestionQueue.removeAll { $0.taskID == taskID }
+        if activeWorkerQuestion?.taskID == taskID {
+            activeWorkerQuestion = nil
+            workerQuestionOutputObserved = false
+            workerQuestionAnswerReady = false
+            workerQuestionArmTask?.cancel()
+            presentNextWorkerQuestion()
+        }
+    }
+
+    private func routeWorkerAnswer(_ utterance: String, token: UUID) async -> Bool {
+        guard workerQuestionAnswerReady, let question = activeWorkerQuestion,
+              pendingQuestion(question) != nil else { return false }
+        do {
+            let decision = try await WorkerAnswerService.classify(utterance: utterance,
+                question: question, key: apiKey)
+            guard !Task.isCancelled, generation == token, activeWorkerQuestion == question else { return true }
+            switch decision.kind {
+            case .answer:
+                acceptWorkerVoiceAnswer(decision.answer, for: question)
+                return true
+            case .ambiguous:
+                workerQuestionAnswerReady = false
+                workerQuestionOutputObserved = false
+                if !live.askWorkerQuestion(question) {
+                    activeWorkerQuestion = nil
+                    workerQuestionQueue.insert(question, at: 0)
+                }
+                return true
+            case .unrelated:
+                return false
+            }
+        } catch is CancellationError {
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            append("I couldn't safely match that response to the waiting Codex question. Please repeat the answer, or type it in the task card.", speak: true)
+            return true
+        }
+    }
+
+    private func acceptWorkerVoiceAnswer(_ answer: String, for question: WorkerQuestionEnvelope) {
+        guard let session = tasks.first(where: { $0.id == question.taskID }),
+              let request = session.pendingQuestions.first(where: { $0.id == question.requestID }),
+              request.questions.contains(where: { $0.id == question.questionID }) else {
+            clearVoiceQuestions(taskID: question.taskID, requestID: question.requestID)
+            presentNextWorkerQuestion()
+            return
+        }
+        let key = WorkerRequestKey(taskID: question.taskID, requestID: question.requestID)
+        workerQuestionAnswers[key, default: [:]][question.questionID] = [answer]
+        activeWorkerQuestion = nil
+        workerQuestionOutputObserved = false
+        workerQuestionAnswerReady = false
+        workerQuestionArmTask?.cancel()
+        let answers = workerQuestionAnswers[key] ?? [:]
+        if request.questions.allSatisfy({ answers[$0.id] != nil }) {
+            answerTaskQuestion(session, requestID: request.id, answers: answers)
+        } else {
+            enqueueVoiceQuestions(session: session, request: request)
+            presentNextWorkerQuestion()
+        }
+    }
 
     func saveAPIKey() {
         guard !credentialsInUse else { return }
@@ -273,7 +489,7 @@ final class AppModel: ObservableObject {
         catch { credentialNotice = error.localizedDescription }
     }
 
-    func quit() { shutdownWakeListening(); shortcutRetryTask?.cancel(); permissionTask?.cancel(); closeBrowser(); stop(); taskManager.stopAll(); apiKey = ""; NSApp.terminate(nil) }
+    func quit() { shutdownWakeListening(); shortcutRetryTask?.cancel(); permissionTask?.cancel(); stop(); taskManager.stopAll(); apiKey = ""; NSApp.terminate(nil) }
 
     private func fail(_ message: String) { stop(); error = message; state = .failed; expanded = true }
 
@@ -293,9 +509,14 @@ final class AppModel: ObservableObject {
         _ = Permissions.requestInputMonitoring()
         refreshPermissions()
     }
+    func requestAccessibilityAccess() {
+        _ = Permissions.requestAccessibility()
+        refreshPermissions()
+    }
     func refreshPermissions() {
         let status = Permissions.read()
         microphoneAllowed = status.microphoneAllowed
+        accessibilityAllowed = status.accessibilityAllowed
         speechAllowed = SFSpeechRecognizer.authorizationStatus() == .authorized
         if !microphoneAllowed || !speechAllowed { wakeListener.stop() }
         updateWakeListening()
@@ -393,14 +614,19 @@ final class AppModel: ObservableObject {
             do {
                 try audio.start(); state = .listening
                 contextLabel = selected ? "Circled region ready. Ask about it." : "Your current display is included with each question"
-                live.send(LiveProtocol.append("Screen reading and multiple independent Codex workers are available. Answer simple questions directly. Delegate screen questions or computer tasks. Computer work can continue while we talk. Never submit applications; wait for explicit user review."))
+                live.send(LiveProtocol.append("Screen reading is available when screen permission is granted. Answer simple questions directly. Delegate screen questions or computer tasks. Computer tasks use the normal installed Codex CLI and the user’s signed-in Codex account: \(codexInstalled ? "Codex is installed." : codexInstallationStatus) Never claim an action occurred when unavailable. Never submit applications; wait for explicit user review."))
                 if runningTaskCount > 0 { append("Independent computer tasks are running:\n" + taskContext) }
+                rebuildWorkerQuestionQueue()
                 if wakeGreetingPending {
                     wakeGreetingPending = false
-                    append("The user just woke you by saying Hey, computah. Respond now with a brief acknowledgment: Hey! I'm here. Then listen for their request.", speak: true)
+                    if workerQuestionQueue.isEmpty {
+                        append("The user just woke you by saying Hey, computah. Respond now with a brief acknowledgment: Hey! I'm here. Then listen for their request.", speak: true)
+                    }
                 }
+                presentNextWorkerQuestion()
             } catch { fail("Microphone could not start: \(error.localizedDescription)") }
         case "session.output_audio.delta":
+            observeWorkerQuestionOutput()
             if let encoded = event["delta"] as? String, let data = Data(base64Encoded: encoded) {
                 audio.play(data)
             }
@@ -408,6 +634,7 @@ final class AppModel: ObservableObject {
             guard ledger.ingest(event) else { return }
             captions = ledger.captions
             if type == "session.input_transcript.delta" { userSpoke(event) }
+            else { observeWorkerQuestionOutput() }
         case "session.delegation.created":
             guard let delegation = event["delegation"] as? [String: Any],
                   delegation["target"] as? String == "client",
@@ -457,10 +684,13 @@ final class AppModel: ObservableObject {
             }
             let question = self.ledger.latestUserText
             guard !question.isEmpty else { return }
+            if await self.routeWorkerAnswer(question, token: token) {
+                self.lastRoutedText = question
+                return
+            }
             if question == self.lastRoutedText {
                 if self.lastRoutedKind == .showBrowser {
-                    let shown = self.tasks.first(where: { $0.id == self.lastShownSessionID })
-                    self.finishDelegations(shown?.isBrowserVisible == true ? "The requested browser window is open. No navigation or new task was started." : "The requested browser window is closed.")
+                    self.finishDelegations(self.lastBrowserAcknowledgment.isEmpty ? "No task browser focus was confirmed." : self.lastBrowserAcknowledgment)
                 } else if self.lastRoutedKind == .task, let batch = self.lastBatchID {
                     self.linkDelegations(self.pendingDelegations, to: batch); self.pendingDelegations.removeAll()
                 } else if !self.findings.isEmpty { self.finishDelegations(self.findings) }
@@ -485,8 +715,10 @@ final class AppModel: ObservableObject {
                     self.lastRoutedText = question
                     self.finishDelegations("Answer this conversational question directly. No screen reading or computer action was performed.")
                 case .showBrowser:
+                    let result = await self.showBrowser(target: route.targetTask)
+                    guard !Task.isCancelled, self.generation == token else { return }
                     self.lastRoutedText = question
-                    let result = self.showBrowser(target: route.targetTask)
+                    self.lastBrowserAcknowledgment = result
                     if self.pendingDelegations.isEmpty { self.append(result) }
                     else { self.finishDelegations(result) }
                 case .screen:
@@ -496,6 +728,16 @@ final class AppModel: ObservableObject {
                     if self.pendingDelegations.isEmpty { self.append(context) }
                     else { self.finishDelegations(context) }
                 case .task:
+                    guard self.codexInstalled else {
+                        self.settings = true; self.expanded = true
+                        self.lastBatchID = nil
+                        self.lastRoutedText = question
+                        let message = self.codexInstallationStatus + " Voice can continue. No computer task was started."
+                        self.findings = message
+                        if self.pendingDelegations.isEmpty { self.append(message, speak: true) }
+                        else { self.finishDelegations(message) }
+                        return
+                    }
                     var context = self.ledger.context()
                     if route.requiresScreen { context += "\n" + (try await self.readScreen(question: question, token: token)) }
                     guard !Task.isCancelled, self.generation == token else { return }
@@ -511,7 +753,7 @@ final class AppModel: ObservableObject {
                         self.batches[batchID]?.sessionIDs.insert(session.id)
                         self.sessionBatches[session.id] = batchID
                     }
-                    self.append("Started \(requested.count) independent computer task\(requested.count == 1 ? "" : "s"). Existing tasks continue. You can keep talking. Every task has its own browser and requires manual review before submission.", speak: true)
+                    self.append("Started \(requested.count) computer task\(requested.count == 1 ? "" : "s") using your normal Codex installation and account. Existing tasks continue. You can keep talking. Manual review is required before submission.", speak: true)
 
                 }
             } catch {
@@ -557,9 +799,14 @@ final class AppModel: ObservableObject {
 
     private func taskFinished(_ session: ComputerTaskSession, result: String, review: Bool) {
         expanded = true
+        if !session.state.isActive { clearVoiceQuestions(taskID: session.id) }
         guard let batchID = sessionBatches[session.id] else { return }
         if review && active && session.voiceSessionID == generation {
-            append("Task \(session.title) needs your review. Choose its Review button. Other tasks continue. No submission was made.", speak: true)
+            if session.approvalPending {
+                append("Task \(session.title) needs your approval. Choose Allow once or Don't allow in its task card. Other tasks continue.", speak: true)
+            } else {
+                append("Task \(session.title) needs your review. Choose its Review button. Other tasks continue. No submission was made.", speak: true)
+            }
         }
         reportBatchIfReady(batchID)
     }

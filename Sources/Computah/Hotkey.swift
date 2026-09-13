@@ -128,7 +128,7 @@ final class HotkeyController {
             }
             uninstall()
         }
-        guard CGPreflightListenEventAccess() || AXIsProcessTrusted() else { onAvailability?(false); return false }
+        guard Permissions.hasInputMonitoringAccess() || AXIsProcessTrusted() else { onAvailability?(false); return false }
         let mask = Self.requiredEvents
         let opaque = Unmanaged.passUnretained(self).toOpaque()
         guard let port = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap,

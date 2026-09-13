@@ -1,12 +1,12 @@
 # Computah interface
 
-This document describes the current SwiftUI and AppKit implementation. The notch panel contains conversation, settings, and task previews. A larger browser window shows the same private session for watching or manual interaction.
+This document describes the current SwiftUI and AppKit implementation. The notch panel contains conversation, settings, and task previews. App control uses Codex's native Computer Use capability and shares the user's existing Mac application interface.
 
 ## Placement and shape
 
-The borderless black panel sits at the top center of the first notched display, falling back to the main display. It remains visible across Spaces and can accompany full-screen apps. The compact panel is currently 377 by 40 points. Its 185-point physical camera gap stays empty, with the lime character on the left shoulder and status on the right.
+The borderless black panel sits at the top center of the first notched display, falling back to the main display. It remains visible across Spaces and can accompany full-screen apps. On the built-in display, its height follows the 32-point top safe area. Idle width is 273 points: the empty 185-point physical camera gap plus an 88-point shoulder for the lime face. Idle mode has no Ready label or chevron. A conversation or running task widens the compact panel to 377 points and shows status on the right shoulder.
 
-Expansion slides open over 320 milliseconds with animated geometry and clipping, revealing a dark scrollable panel with rounded lower corners. Conversation and settings use a compact width; browser review expands to fit more of the page. Available display dimensions limit the panel's width and height.
+Hovering over the lime face for 240 milliseconds expands the panel. Clicking the same face toggles it open or closed. Moving the pointer away does not close it, but clicking outside does. Expansion slides open over 320 milliseconds with animated geometry and clipping, revealing a dark scrollable panel with rounded lower corners. Conversation and settings use a compact width; app interaction happens through native Codex Computer Use. Available display dimensions limit the panel's width and height.
 
 ## Character and color
 
@@ -18,7 +18,7 @@ The main accent is RGB `0.82, 0.95, 0.55`, approximately `#D1F28C`. Backgrounds 
 
 The expanded header shows Computah and a plain-language state. Before the conversation starts, the panel explains the configured shortcut. During a conversation, compact live subtitles show the latest user and Computah speech in separate labeled rows. The user row shows one line and the assistant row shows two, keeping the newest text visible. After the conversation ends, a scrollable transcript is available. A screen-context row shows whether the current display or circled region is included, with a Clear action for a selection.
 
-The main button starts or ends the conversation. Each concurrent task has a title, status, private browser preview, open/review/stop controls, and result. Pausing voice does not stop these independent workers.
+The main button starts or ends the conversation. Each concurrent task has a title, status, stop and review controls, and a result. A native app-approval request adds **Allow once** and **Don't allow** to the task card. Answering that request keeps the worker turn alive. A worker question changes the status to Waiting for your voice answer and adds a text form to the task card. The form renders choices, an optional alternative answer, ordinary text fields, or private fields for secret answers. The voice conversation names the task, asks each non-secret question with its choices, and returns the user's relevant answer to that same task. Pausing voice does not stop these independent workers.
 
 If echo cancellation cannot start, the conversation panel shows a headphones notice while ordinary audio remains available.
 
@@ -26,10 +26,12 @@ If echo cancellation cannot start, the conversation panel shows a headphones not
 
 Settings provide a secure API key field, a Conversation key picker, permission status, and Quit Computah. Right Shift is the default conversation key; right Command, Option, and Control are also available. The shortcut choice persists in UserDefaults. Each permission row has an Allow or Settings control, and permission status refreshes passively without consent prompts. Explicit Allow requests access once. Settings save, replace, or remove the API key in macOS Keychain. Starting a conversation also saves the entered key automatically. The app loads it at startup. Reopen Computah ends voice and all tasks, then reloads the saved key. The footer shows the incrementing build number and UTC build date.
 
-Clicking the task thumbnail or asking to show the browser opens a larger window containing the selected task's private `WKWebView` session. Watching allows the task to continue, and closing the window does not stop it. Take over stops the worker and transfers control to the user for manual interaction. Website JavaScript is allowed on subsequent navigation, but the app does not reload automatically. The user may need to reload scripted pages manually. Close review returns to the conversation view.
+The app has no custom Chrome extension installation, pairing controls, or separate helper check. Settings report whether the Codex CLI is installed. Account, plugin, and native app access are checked when a task starts. Each task uses a regular `codex app-server` process with the user's normal Codex account and plugins. It requests `gpt-5.6-sol` with high reasoning effort and does not receive the API key saved for voice and screen reading.
+
+Native Computer Use may ask for app approval through MCP elicitation. **Allow once** accepts one request and **Don't allow** declines it; both answer the app server without ending the turn. Worker questions also keep their turns alive while the voice layer asks the user. Unrelated speech stays in the conversation; ambiguous replies repeat the pending question. Concurrent reasoning tasks share existing applications, so the interface must not imply isolated browser tabs or independent desktops.
 
 ## Pointing and access
 
 Holding the configured conversation key (Right Shift by default) reveals a temporary selection overlay on the display under the pointer. Dragging draws a lime lasso; the app captures its rectangular bounds as a crop alongside the whole display. Escape cancels. The Start talking button remains usable when Input Monitoring is unavailable.
 
-The interface labels icon controls for accessibility, uses system typography, permits caption and result text selection, and responds to Reduce Motion. Native mouse and keyboard events used for pointing belong to the user; worker browser tools do not drive the system cursor.
+The interface labels icon controls for accessibility, uses system typography, permits caption and result text selection, and responds to Reduce Motion. The pointing overlay uses the user's native mouse and keyboard events. Computer Use acts in existing applications and can affect the shared interface.

@@ -8,7 +8,7 @@
   "authenticatedModelSession": false,
   "realApplicantData": false,
   "submissionPerformed": false,
-  "notes": "Rendered from production SwiftUI and WebKit components. Transcripts, task results, institution names, and application data are illustrative. Captures reflect development source; website ZIP remains build 6. Pixels are unretouched. PNG metadata records provenance.",
+  "notes": "Rendered from SwiftUI and the former WebKit task runtime at revision 00032e9. Transcripts, task results, institution names, and application data are illustrative. The current app uses native Codex Computer Use instead. Captures reflect development source; website ZIP remains build 6. Pixels are unretouched. PNG metadata records provenance.",
   "images": [
     {
       "file": "masters-conversation.png",
@@ -22,12 +22,12 @@
     },
     {
       "file": "masters-browser.png",
-      "scenario": "Native browser after production browser_click and browser_type populated three sample form fields.",
+      "scenario": "Retired WebKit fixture after browser_click and browser_type populated three sample form fields.",
       "sha256": "73409d5dd82e01ae722d8cd2f5dcdcb647ff34f03c0754c12d1056569df39896"
     },
     {
       "file": "masters-review.png",
-      "scenario": "Native browser after a submit-control click requested manual review and local takeover was exercised; no form submission.",
+      "scenario": "Retired WebKit fixture after a submit-control click requested manual review and local takeover was exercised; no form submission.",
       "sha256": "4e99e30cf59064f515fb59b3e5f75ea111244c385c70b412923f73cb763fdb96"
     }
   ]

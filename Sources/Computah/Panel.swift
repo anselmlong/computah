@@ -48,6 +48,7 @@ struct IslandView: View {
     @ObservedObject var model: AppModel
     var notchWidth: CGFloat = 190
     var notchHeight: CGFloat = 32
+    var collapsedHeight: CGFloat = 32
     var maximumHeight: CGFloat = 760
     var reviewWidth: CGFloat = 880
     var onResize: (() -> Void)?
@@ -55,10 +56,13 @@ struct IslandView: View {
     var revealProgress: CGFloat = 1
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var faceHovered = false
+    @State private var suppressHoverUntilExit = false
+    @State private var hoverOpenTask: Task<Void, Never>?
+    var compactWidth: CGFloat { notchWidth + (model.active || model.runningTaskCount > 0 ? 192 : 88) }
 
     var body: some View {
         let width = model.reviewing && !model.settings ? reviewWidth : max(410, notchWidth + 192)
-        let visibleSize = revealSize ?? CGSize(width: model.expanded ? width : notchWidth + 192, height: model.expanded ? contentHeight + notchHeight + 8 : notchHeight + 8)
+        let visibleSize = revealSize ?? CGSize(width: model.expanded ? width : compactWidth, height: model.expanded ? contentHeight + notchHeight + 8 : collapsedHeight)
         VStack(spacing: 0) {
             Color.clear.frame(height: notchHeight + 8)
 
@@ -95,9 +99,11 @@ struct IslandView: View {
         .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 25, bottomTrailingRadius: 25))
         .overlay(alignment: .bottom) { if model.active && model.expanded { Capsule().fill(leaf).frame(width: 28, height: 2).padding(.bottom, 6) } }
         .contentShape(Rectangle())
-        .overlay(alignment: .top) { shoulderHeader }
+        .overlay(alignment: .top) { shoulderHeader(height: min(notchHeight + 8, visibleSize.height)) }
         .preferredColorScheme(.dark)
         .onChange(of: model.expanded) { _, _ in onResize?() }
+        .onChange(of: model.active) { _, _ in onResize?() }
+        .onChange(of: model.runningTaskCount) { _, _ in onResize?() }
         .onChange(of: model.settings) { _, _ in onResize?() }
         .onChange(of: model.reviewing) { _, _ in onResize?() }
         .onChange(of: model.captions.count) { _, _ in onResize?() }
@@ -106,38 +112,58 @@ struct IslandView: View {
         .onReceive(model.taskManager.objectWillChange) { _ in onResize?() }
     }
 
-    private var shoulderHeader: some View {
+    private func shoulderHeader(height: CGFloat) -> some View {
         HStack(spacing: 0) {
-            Button { model.expanded = true } label: {
+            Button {
+                hoverOpenTask?.cancel()
+                suppressHoverUntilExit = model.expanded
+                model.expanded.toggle()
+            } label: {
                 CompanionFace(state: model.state, level: model.level)
                     .scaleEffect(faceHovered && !reduceMotion ? 0.67 : 0.62)
-                    .frame(width: 96, height: notchHeight + 8)
+                    .offset(x: 26)
+                    .frame(width: 96, height: height)
                     .contentShape(Rectangle())
             }
             .buttonStyle(IslandButtonStyle())
-            .onHover { faceHovered = $0 }
-            .accessibilityLabel("Open Computah")
+            .onHover { hovering in
+                faceHovered = hovering
+                hoverOpenTask?.cancel()
+                if !hovering { suppressHoverUntilExit = false }
+                guard hovering, !model.expanded, !suppressHoverUntilExit else { return }
+                hoverOpenTask = Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(240))
+                    guard !Task.isCancelled, faceHovered else { return }
+                    model.expanded = true
+                }
+            }
+            .onDisappear { hoverOpenTask?.cancel() }
+            .accessibilityLabel(model.expanded ? "Collapse Computah" : "Open Computah")
             // The physical camera cutout contains no status, controls, or text.
-            Color.clear.frame(width: notchWidth, height: notchHeight + 8)
+            Color.clear.frame(width: notchWidth, height: height)
                 .allowsHitTesting(false)
+            if model.expanded || model.active || model.runningTaskCount > 0 {
             Button { model.expanded.toggle() } label: {
                 HStack(spacing: 6) {
+                    if model.active || model.runningTaskCount > 0 {
                     Image(systemName: model.runningTaskCount > 0 ? "desktopcomputer" : model.active ? "mic.fill" : "circle.fill")
                         .font(.system(size: model.active || model.runningTaskCount > 0 ? 11 : 5))
                         .foregroundStyle(leaf)
-                    Text(model.runningTaskCount > 0 ? "\(model.runningTaskCount) \(model.runningTaskCount == 1 ? "task" : "tasks")" : model.active ? "Live" : "Ready")
+                    Text(model.runningTaskCount > 0 ? "\(model.runningTaskCount) \(model.runningTaskCount == 1 ? "task" : "tasks")" : model.active ? "Live" : "")
                         .font(.system(size: 10, weight: .medium))
+                    }
                     Image(systemName: model.expanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 9, weight: .semibold))
                 }
                 .foregroundStyle(.white)
-                .frame(width: 96, height: notchHeight + 8)
+                .frame(width: 96, height: height)
                 .contentShape(Rectangle())
             }
             .buttonStyle(IslandButtonStyle())
             .accessibilityLabel(model.expanded ? "Collapse Computah" : "Expand Computah")
+            } else { Color.clear.frame(width: 96, height: height).allowsHitTesting(false) }
         }
-        .frame(width: notchWidth + 192, height: notchHeight + 8)
+        .frame(width: notchWidth + 192, height: height)
     }
 
     var contentHeight: CGFloat {
@@ -172,6 +198,13 @@ struct IslandView: View {
                             Image(systemName: model.settings ? "xmark" : "gearshape")
                                 .frame(width: 32, height: 32).contentShape(Rectangle())
                         }.buttonStyle(IslandButtonStyle()).accessibilityLabel(model.settings ? "Close settings" : "Open settings")
+                        Button { model.quit() } label: {
+                            Image(systemName: "power")
+                                .frame(width: 32, height: 32).contentShape(Rectangle())
+                        }
+                        .buttonStyle(IslandButtonStyle())
+                        .accessibilityLabel("Quit Computah and stop all tasks")
+                        .help("Quit Computah and stop all tasks")
                     }
     }
 
@@ -239,9 +272,13 @@ struct IslandView: View {
                 Text("Computer tasks · \(model.runningTaskCount) running")
                     .font(.system(size: 12, weight: .semibold)).foregroundStyle(secondaryInk)
                 ForEach(model.tasks) { session in
-                    WorkerCard(session: session, worker: session.worker, browser: session.browser,
+                    WorkerCard(session: session, worker: session.worker,
                         onStop: { model.stopTask(session) }, onReview: { model.reviewTask(session) },
-                        onOpenBrowser: { model.openBrowser(session) })
+                        onAllow: { model.allowTaskApproval(session) },
+                        onDecline: { model.declineTaskApproval(session) },
+                        onAnswer: { requestID, answers in
+                            model.answerTaskQuestion(session, requestID: requestID, answers: answers)
+                        })
                 }
             }
         }
@@ -277,6 +314,15 @@ struct IslandView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Divider().overlay(Color.white.opacity(0.15))
+            Label(model.codexInstalled ? "Codex installed" : "Codex unavailable",
+                  systemImage: model.codexInstalled ? "checkmark.circle.fill" : "exclamationmark.circle")
+                .font(.system(size: 12)).foregroundStyle(model.codexInstalled ? leaf : secondaryInk)
+            Text(model.codexInstallationStatus)
+                .font(.system(size: 11)).foregroundStyle(secondaryInk).fixedSize(horizontal: false, vertical: true)
+            if !model.codexInstalled {
+                Button("Check again") { model.refreshCodexStatus() }.controlSize(.small)
+            }
+            Divider().overlay(Color.white.opacity(0.15))
             Picker("Conversation key", selection: $model.shortcut) {
                 ForEach(HotkeyModifier.allCases) { key in Text(key.title).tag(key) }
             }.pickerStyle(.menu).font(.system(size: 12))
@@ -297,16 +343,12 @@ struct IslandView: View {
                 action: model.requestScreenAccess, openSettings: Permissions.openScreenRecordingSettings)
             permissionRow("Input Monitoring", allowed: model.inputMonitoringAllowed,
                 action: model.requestShortcutAccess, openSettings: Permissions.openInputMonitoringSettings)
+            permissionRow("Accessibility (optional)", allowed: model.accessibilityAllowed,
+                action: model.requestAccessibilityAccess, openSettings: Permissions.openAccessibilitySettings)
             if !model.inputMonitoringAllowed {
                 Button("Renew Input Monitoring") { model.requestShortcutAccess() }.controlSize(.small)
                 Text("Refresh only checks access. Choose Allow or Renew, then enable Computah in Input Monitoring. If it is missing, add the built Computah.app with the + button.")
                     .font(.system(size: 11)).foregroundStyle(secondaryInk).fixedSize(horizontal: false, vertical: true)
-            }
-            Text("\(model.shortcut.title) shortcut: \(model.shortcutAvailable ? "ready" : "unavailable; use Start talking")")
-                .font(.system(size: 11)).foregroundStyle(secondaryInk)
-            if !model.gestureDiagnostics.isEmpty {
-                Text(model.gestureDiagnostics).font(.system(size: 11)).foregroundStyle(secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             if !model.screenAllowed && !model.screenPermissionChecking && !model.screenPermissionUnavailable {
                 Text("macOS has not granted this build screen access. A grant from an earlier build may need renewal. Choose Allow to request access, or open Screen Recording settings.")
@@ -323,12 +365,6 @@ struct IslandView: View {
                 Spacer()
                 Button("Reopen Computah") { model.relaunch() }.controlSize(.small)
             }
-            if model.active && !model.voiceDiagnostics.isEmpty {
-                Text(model.voiceDiagnostics).font(.system(size: 11)).foregroundStyle(secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
-            }
-            Text(model.keySaved ? "Reopening ends voice and tasks. Your saved key loads from Keychain." : "Reopening ends voice and tasks and clears an unsaved key. Save it in Keychain to load it again.")
-                .font(.system(size: 11)).foregroundStyle(secondaryInk).fixedSize(horizontal: false, vertical: true)
             if let error = model.error { errorView(error) }
             HStack {
                 Button("Done") { model.settings = false }.disabled(model.apiKey.isEmpty)
@@ -353,10 +389,20 @@ struct IslandView: View {
             } else if allowed {
                 Text("Allowed").font(.system(size: 11)).foregroundStyle(secondaryInk)
                 Button("Settings", action: openSettings).controlSize(.small)
+                    .accessibilityLabel("Open \(title) settings")
+                    .accessibilityIdentifier("permission.settings.\(title)")
             } else if unavailable {
                 Button("Allow", action: action).controlSize(.small)
+                    .accessibilityLabel("Allow \(title)")
+                    .accessibilityIdentifier("permission.allow.\(title)")
                 Button("Settings", action: openSettings).controlSize(.small)
-            } else { Button("Allow", action: action).controlSize(.small) }
+                    .accessibilityLabel("Open \(title) settings")
+                    .accessibilityIdentifier("permission.settings.\(title)")
+            } else {
+                Button("Allow", action: action).controlSize(.small)
+                    .accessibilityLabel("Allow \(title)")
+                    .accessibilityIdentifier("permission.allow.\(title)")
+            }
         }
     }
     private func errorView(_ text: String) -> some View {
@@ -402,8 +448,16 @@ final class PanelController {
             })
         }
         observers.append(NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.model.refreshPermissions(); self?.resize() }
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] notification in
+                let activatedPID = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier
+                Task { @MainActor in
+                    guard let self else { return }
+                    if let activatedPID, activatedPID != ProcessInfo.processInfo.processIdentifier {
+                        self.model.expanded = false
+                    }
+                    self.model.refreshPermissions()
+                    self.resize()
+                }
             })
         let clicks: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
         localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: clicks) { [weak self] event in
@@ -420,7 +474,7 @@ final class PanelController {
             return event
         }
         globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: clicks) { [weak self] _ in
-            MainActor.assumeIsolated { self?.dismissIfOutside(NSEvent.mouseLocation) }
+            Task { @MainActor in self?.dismissIfOutside(NSEvent.mouseLocation) }
         }
         resize(); panel.orderFrontRegardless()
     }
@@ -449,25 +503,17 @@ final class PanelController {
             self.resizePending = false
             guard let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.main else { return }
             self.display = screen
-            let notchWidth: CGFloat
-            let notchHeight: CGFloat
-            if screen.safeAreaInsets.top > 0,
-               let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea {
-                notchWidth = right.minX - left.maxX
-                notchHeight = screen.safeAreaInsets.top
-            } else {
-                notchWidth = 120
-                notchHeight = 24
-            }
+            let geometry = NotchGeometry(screen: screen)
             let maximumHeight = min(760, screen.frame.height - 48)
             let reviewWidth = min(880, screen.frame.width - 48)
-            let content = IslandView(model: self.model, notchWidth: notchWidth,
-                notchHeight: notchHeight, maximumHeight: maximumHeight,
+            let content = IslandView(model: self.model, notchWidth: geometry.notchWidth,
+                notchHeight: geometry.notchHeight, collapsedHeight: geometry.collapsedHeight,
+                maximumHeight: maximumHeight,
                 reviewWidth: reviewWidth, onResize: { [weak self] in self?.resize() })
-            let width = self.model.reviewing && !self.model.settings ? reviewWidth : max(410, notchWidth + 192)
+            let width = self.model.reviewing && !self.model.settings ? reviewWidth : max(410, geometry.notchWidth + 192)
             let target = self.model.expanded
-                ? CGSize(width: width, height: content.contentHeight + notchHeight + 8)
-                : CGSize(width: notchWidth + 192, height: notchHeight + 8)
+                ? CGSize(width: width, height: content.contentHeight + geometry.notchHeight + 8)
+                : CGSize(width: content.compactWidth, height: geometry.collapsedHeight)
             let endReveal: CGFloat = self.model.expanded ? 1 : 0
             guard target != self.targetSize else { return }
             self.targetSize = target
@@ -510,10 +556,11 @@ final class PanelController {
 private struct WorkerCard: View {
     @ObservedObject var session: ComputerTaskSession
     @ObservedObject var worker: CodexWorker
-    @ObservedObject var browser: BrowserWorkspace
     let onStop: () -> Void
     let onReview: () -> Void
-    let onOpenBrowser: () -> Void
+    let onAllow: () -> Void
+    let onDecline: () -> Void
+    let onAnswer: (String, [String: [String]]) -> Void
     @State private var showFullResult = false
 
     var body: some View {
@@ -525,20 +572,25 @@ private struct WorkerCard: View {
                     .font(.system(size: 11)).foregroundStyle(secondaryInk)
                 Spacer()
                 if session.state.isActive { Button("Stop", action: onStop).controlSize(.small) }
-                if session.state == .review || session.state == .manualReview {
+                if !session.approvalPending && (session.state == .review || session.state == .manualReview) {
                     Button("Review", action: onReview).controlSize(.small).tint(leaf)
                 }
             }
-            if let preview = browser.preview {
-                Button(action: onOpenBrowser) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Image(nsImage: preview).resizable().scaledToFit().frame(maxHeight: 140)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                        Label("Open browser", systemImage: "arrow.up.left.and.arrow.down.right")
-                            .font(.system(size: 11)).foregroundStyle(leaf)
+            if session.approvalPending {
+                HStack {
+                    if session.approvalCanBeAccepted {
+                        Button("Allow once", action: onAllow).controlSize(.small).tint(leaf)
+                            .accessibilityLabel("Allow once for \(session.title)")
                     }
-                }.buttonStyle(IslandButtonStyle()).accessibilityLabel("Open browser for \(session.title)")
-            } else { Button("Open browser", action: onOpenBrowser).controlSize(.small) }
+                    Button("Don't allow", action: onDecline).controlSize(.small)
+                        .accessibilityLabel("Don't allow for \(session.title)")
+                }
+            }
+            ForEach(session.pendingQuestions) { request in
+                TaskQuestionForm(taskTitle: session.title, request: request,
+                    onSubmit: { onAnswer(request.id, $0) })
+                    .id(request.id)
+            }
             if !session.result.isEmpty {
                 Text(showFullResult ? session.result : String(session.result.prefix(300)))
                     .font(.system(size: 12)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
@@ -549,6 +601,74 @@ private struct WorkerCard: View {
             }
         }
         .padding(12).background(Color(white: 0.1), in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+private struct TaskQuestionForm: View {
+    let taskTitle: String
+    let request: CodexQuestionRequest
+    let onSubmit: ([String: [String]]) -> Void
+    @State private var answers: [String: String] = [:]
+
+    private var complete: Bool {
+        request.questions.allSatisfy {
+            !(answers[$0.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Codex needs your answer")
+                .font(.system(size: 12, weight: .semibold)).foregroundStyle(leaf)
+            ForEach(request.questions) { question in
+                VStack(alignment: .leading, spacing: 6) {
+                    if !question.header.isEmpty {
+                        Text(question.header).font(.system(size: 11, weight: .semibold)).foregroundStyle(secondaryInk)
+                    }
+                    Text(question.prompt).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+                    if !question.options.isEmpty {
+                        ForEach(Array(question.options.enumerated()), id: \.offset) { _, option in
+                            Button {
+                                answers[question.id] = option.label
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(option.label).font(.system(size: 11, weight: .medium))
+                                    if !option.description.isEmpty {
+                                        Text(option.description).font(.system(size: 10)).foregroundStyle(secondaryInk)
+                                    }
+                                }.frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(answers[question.id] == option.label ? leaf : secondaryInk)
+                        }
+                    }
+                    if question.options.isEmpty || question.allowsOther {
+                        if question.isSecret {
+                            SecureField("Private answer", text: answerBinding(question.id))
+                                .accessibilityLabel("Private answer for \(question.header.isEmpty ? taskTitle : question.header)")
+                        } else {
+                            TextField(question.options.isEmpty ? "Your answer" : "Another answer",
+                                      text: answerBinding(question.id))
+                                .accessibilityLabel("Answer for \(question.header.isEmpty ? taskTitle : question.header)")
+                        }
+                    }
+                }
+            }
+            Button("Send answer") {
+                let payload = Dictionary(uniqueKeysWithValues: request.questions.map {
+                    ($0.id, [answers[$0.id]!.trimmingCharacters(in: .whitespacesAndNewlines)])
+                })
+                onSubmit(payload)
+            }
+            .controlSize(.small).tint(leaf).disabled(!complete)
+            .accessibilityLabel("Send answers to \(taskTitle)")
+        }
+        .padding(10)
+        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 9))
+    }
+
+    private func answerBinding(_ id: String) -> Binding<String> {
+        Binding(get: { answers[id] ?? "" }, set: { answers[id] = $0 })
     }
 }
 

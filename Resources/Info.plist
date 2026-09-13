@@ -12,5 +12,6 @@
   <key>NSMicrophoneUsageDescription</key><string>Computah listens for Hey, computah on your Mac when enabled, and uses the microphone during voice conversations.</string>
   <key>NSSpeechRecognitionUsageDescription</key><string>Computah recognizes Hey, computah on your Mac to start a voice conversation.</string>
   <key>NSScreenCaptureUsageDescription</key><string>Computah includes your current display and circled region when you ask about your screen.</string>
+  <key>NSAppleEventsUsageDescription</key><string>Computah works with other apps to complete the computer tasks you request.</string>
   <key>NSHighResolutionCapable</key><true/>
 </dict></plist>

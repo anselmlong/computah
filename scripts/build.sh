@@ -8,14 +8,20 @@ if [[ -z "$signing_identity" ]]; then
         print -u2 -- "Could not inspect existing signing identities in Keychain. Set COMPUTAH_SIGNING_IDENTITY to an existing identity."
         exit 1
     fi
-    signing_identity="$(print -r -- "$identity_report" | awk '/"Apple Development:/ { print $2; exit }')"
+    signing_identity="$(print -r -- "$identity_report" | awk '/"Developer ID Application:/ { print $2; exit }')"
     if [[ -z "$signing_identity" ]]; then
-        signing_identity="$(print -r -- "$identity_report" | awk '/"Developer ID Application:/ { print $2; exit }')"
-    fi
-    if [[ -z "$signing_identity" ]]; then
-        print -u2 -- "No valid Apple Development or Developer ID signing identity found. Set COMPUTAH_SIGNING_IDENTITY to an existing identity."
+        print -u2 -- "No valid Developer ID Application signing identity found. Set COMPUTAH_SIGNING_IDENTITY explicitly to an existing identity for local development."
         exit 1
     fi
+fi
+notary_profile="${COMPUTAH_NOTARY_PROFILE:-}"
+if [[ -n "$notary_profile" ]]; then
+    if [[ "$signing_identity" == "-" ]]; then
+        print -u2 -- "Notarization requires Developer ID signing. Ad hoc signing cannot be notarized."
+        exit 1
+    fi
+    xcrun --find notarytool >/dev/null
+    xcrun --find stapler >/dev/null
 fi
 if [[ "$signing_identity" == "-" ]]; then
     print -u2 -- "Explicit ad hoc signing requested. macOS permission approvals may change after each rebuild."
@@ -69,11 +75,45 @@ fi
 if ! /usr/libexec/PlistBuddy -c "Set :ComputahBuildDate $build_date" "$staged_info" 2>/dev/null; then
     /usr/libexec/PlistBuddy -c "Add :ComputahBuildDate string $build_date" "$staged_info"
 fi
-if ! codesign --force --sign "$signing_identity" --identifier com.lvl8.computah "$staged_bundle"; then
+entitlements_file="$staging_directory/entitlements.plist"
+cat > "$entitlements_file" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>com.apple.security.device.audio-input</key><true/>
+  <key>com.apple.security.automation.apple-events</key><true/>
+</dict></plist>
+PLIST
+if ! codesign --force --sign "$signing_identity" --identifier com.lvl8.computah \
+    --options runtime --timestamp --entitlements "$entitlements_file" "$staged_bundle"; then
     print -u2 -- "Signing failed. Allow access to the existing signing key if macOS requests it, or choose an existing identity with COMPUTAH_SIGNING_IDENTITY. The previous app is unchanged."
     exit 1
 fi
 codesign --verify --strict "$staged_bundle"
+
+if [[ -n "$notary_profile" ]]; then
+    notary_archive="$staging_directory/Computah.zip"
+    notary_result="$staging_directory/notarization.json"
+    ditto -c -k --keepParent "$staged_bundle" "$notary_archive"
+    if ! xcrun notarytool submit "$notary_archive" --keychain-profile "$notary_profile" \
+        --wait --timeout 10m --output-format json > "$notary_result"; then
+        submission_id="$(plutil -extract id raw -o - "$notary_result" 2>/dev/null || true)"
+        print -u2 -- "Notarization failed or timed out. Submission: ${submission_id:-unavailable}. The previous app is unchanged."
+        exit 1
+    fi
+    notary_status="$(plutil -extract status raw -o - "$notary_result" 2>/dev/null || true)"
+    if [[ "$notary_status" != "Accepted" ]]; then
+        submission_id="$(plutil -extract id raw -o - "$notary_result" 2>/dev/null || true)"
+        print -u2 -- "Apple did not accept notarization. Submission: ${submission_id:-unavailable}. The previous app is unchanged."
+        exit 1
+    fi
+    xcrun stapler staple -q "$staged_bundle"
+    xcrun stapler validate -q "$staged_bundle"
+    codesign --verify --strict "$staged_bundle"
+    spctl --assess --type execute "$staged_bundle"
+else
+    print -u2 -- "Signed with hardened runtime and a secure timestamp. Not notarized; Gatekeeper approval is not established. Set COMPUTAH_NOTARY_PROFILE to an existing notarytool Keychain profile to notarize and staple."
+fi
 
 # Publish only the complete, verified bundle. Never overwrite the running binary in place.
 if [[ -e "$final_bundle" ]]; then mv "$final_bundle" "$previous_bundle"; fi

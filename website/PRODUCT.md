@@ -8,7 +8,7 @@ web
 
 ## Users
 
-People considering Computah for everyday browser tasks and larger projects on their Mac. The pitch spans applications, travel research, surveys/forms, and understanding visible emails. The master's application remains one illustrative walkthrough.
+People considering Computah for everyday computer tasks and larger projects on their Mac. The pitch spans applications, travel research, surveys/forms, and understanding visible emails. The master's application remains one illustrative walkthrough.
 
 ## Product Purpose
 
@@ -16,13 +16,13 @@ Explain the native Computah app through a concrete application workflow, show it
 
 ## Capabilities and Constraints
 
-Computah is a native voice companion in a notch panel. It can interpret the current display and a selected crop, route requests into browser tasks, and run independent workers with separate browser sessions. Users can watch or take over those sessions. The app requires the user's OpenAI API key; browser work also needs the Codex CLI. Website JavaScript is disabled during preparation, so scripted portals and sign-in may require manual interaction. The worker does not submit applications, upload documents, or invent applicant qualifications.
+Computah is a native voice companion in a notch panel. It can interpret the current display and a selected crop, then route requests into computer tasks. Each task starts a normal Codex worker and uses native Computer Use in the user's existing Mac applications. The app requires the user's OpenAI API key for voice and screen reading; computer work uses the account already signed in through the Codex CLI. Workers are instructed to ask for explicit confirmation before consequential actions, and Computah routes the user's voice answer back to the same waiting task. That rule is not enforced by the YOLO-mode runtime.
 
 The download is an Apple silicon macOS 14+ prototype, with version and size stamped by the release pipeline. The packaged binary is separate from development-interface screenshots. No production-readiness, admissions outcomes, testimonials, usage counts, or authenticated end-to-end validation are established.
 
 ## Evidence on Hand
 
-The native source is in `Sources/Computah/` in this repository. Reproducible captures use its real SwiftUI and WebKit components with explicitly illustrative transcripts and a fictional master's application. The browser form interactions can be exercised locally through production browser tools. These captures are not an authenticated live AI session or a real university application. Screenshots must carry that distinction in visible captions and in their provenance record.
+The native source is in `Sources/Computah/` in this repository. Reproducible captures use real SwiftUI components and the retired WebKit fixture path with explicitly illustrative transcripts and a fictional master's application. The captures do not exercise the current native Computer Use runtime and are not an authenticated live AI session or a real university application. Screenshots must carry that distinction in visible captions and in their provenance record.
 
 ## Brand Commitments
 

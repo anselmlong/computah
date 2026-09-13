@@ -4,10 +4,10 @@ import Combine
 enum ComputerTaskState: String {
     case starting, working, review, manualReview, completed, failed, cancelled
 
-    var isActive: Bool { self == .starting || self == .working }
+    var isActive: Bool { self == .starting || self == .working || self == .review }
 }
 
-/// A task keeps its own browser, worker and original voice delegation identity.
+/// Each task retains its worker, application context and original voice delegation.
 @MainActor
 final class ComputerTaskSession: ObservableObject, Identifiable {
     let id = UUID()
@@ -22,12 +22,16 @@ final class ComputerTaskSession: ObservableObject, Identifiable {
     @Published private(set) var outcome: String?
     @Published private(set) var finishedAt: Date?
     var result: String { outcome ?? worker.result }
-    var isBrowserVisible: Bool { browserWindow?.isVisible ?? false }
+    var hasBrowserTab: Bool { browser.hasTaskTab }
+    var approvalPending: Bool { worker.approvalPending }
+    var approvalCanBeAccepted: Bool { worker.approvalCanBeAccepted }
+    var pendingQuestion: CodexQuestionRequest? { worker.pendingQuestion }
+    var pendingQuestions: [CodexQuestionRequest] { worker.pendingQuestions }
 
     fileprivate var onResult: ((ComputerTaskSession, String) -> Void)?
     fileprivate var onReview: ((ComputerTaskSession, String) -> Void)?
+    fileprivate var onQuestion: ((ComputerTaskSession, CodexQuestionRequest) -> Void)?
     private var startupTask: Task<Void, Never>?
-    private var browserWindow: BrowserWindowController?
     private var observers: Set<AnyCancellable> = []
     private var notificationSent = false
 
@@ -43,20 +47,21 @@ final class ComputerTaskSession: ObservableObject, Identifiable {
         browser.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &observers)
         worker.onResult = { [weak self] text in self?.completed(text) }
         worker.onReview = { [weak self] text in self?.requestedReview(text) }
+        worker.onQuestion = { [weak self] question in
+            guard let self else { return }
+            self.onQuestion?(self, question)
+        }
     }
 
     func addDelegations(_ ids: Set<String>) { delegationIDs.formUnion(ids) }
 
     fileprivate func launch(context: String, apiKey: String) {
-        var startupKey = apiKey
+        _ = apiKey
         startupTask = Task { [weak self] in
             guard let self, !Task.isCancelled, self.state == .starting else { return }
-            defer {
-                startupKey = ""
-                self.startupTask = nil
-            }
+            defer { self.startupTask = nil }
             do {
-                try await self.worker.start(task: self.task, context: context, apiKey: startupKey)
+                try await self.worker.start(task: self.task, context: context, apiKey: "", title: self.title)
                 guard !Task.isCancelled, self.state == .starting else { return }
                 if self.worker.running { self.state = .working }
             } catch {
@@ -86,9 +91,27 @@ final class ComputerTaskSession: ObservableObject, Identifiable {
         guard state.isActive, !notificationSent else { return }
         state = .review
         outcome = text
-        finishedAt = Date()
-        notificationSent = true
+        finishedAt = worker.approvalPending ? nil : Date()
+        if !worker.approvalPending { notificationSent = true }
         onReview?(self, text)
+    }
+
+    func allowPendingApproval() throws {
+        try worker.approvePendingReview()
+        state = .working
+        outcome = nil
+        finishedAt = nil
+    }
+
+    func declinePendingApproval() {
+        worker.declinePendingReview()
+        state = .working
+        outcome = nil
+        finishedAt = nil
+    }
+
+    func answerPendingQuestion(requestID: String, answers: [String: [String]]) throws {
+        try worker.answerPendingQuestion(requestID: requestID, answers: answers)
     }
 
     private func notifyResult(_ text: String) {
@@ -101,6 +124,7 @@ final class ComputerTaskSession: ObservableObject, Identifiable {
         startupTask?.cancel()
         startupTask = nil
         // Completed and review results remain available when Quit cancels active work.
+        if state == .review, !worker.approvalPending, !worker.running { return }
         guard state.isActive else {
             if worker.running { worker.stop() }
             return
@@ -114,29 +138,21 @@ final class ComputerTaskSession: ObservableObject, Identifiable {
     }
 
     @discardableResult
-    func showBrowser() -> Bool {
-        if browserWindow == nil {
-            let controller = BrowserWindowController(browser: browser, worker: worker, taskTitle: title)
-            controller.onTakeOver = { [weak self] in self?.takeOver() }
-            controller.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &observers)
-            browserWindow = controller
-        }
-        browserWindow?.show()
-        return browserWindow?.isVisible ?? false
+    func showBrowser() async throws -> Bool {
+        throw ComputahError.message("Codex uses your existing apps and does not create a separate task browser tab.")
     }
 
-    func review() {
-        takeOver()
-        showBrowser()
+    func review() async throws {
+        try await takeOver()
     }
 
-    func takeOver() {
+    func takeOver() async throws {
         startupTask?.cancel()
         startupTask = nil
-        worker.takeOverForReview()
+        try await worker.takeOverForReview()
         state = .manualReview
         if !notificationSent {
-            let text = "The user took over this task's browser for manual review. No submission was made by the agent."
+            let text = "The user stopped this task's agent for manual review. No submission was made by the agent."
             outcome = text
             finishedAt = Date()
             notificationSent = true
@@ -144,10 +160,9 @@ final class ComputerTaskSession: ObservableObject, Identifiable {
         }
     }
 
-    func closeBrowser() { browserWindow?.close() }
+    func detach() async { await browser.detach() }
 
     fileprivate func makeBrowsingSession() {
-        worker.takeOverForReview()
         state = .manualReview
         notificationSent = true
     }
@@ -159,6 +174,7 @@ final class ComputerTaskManager: ObservableObject {
     @Published private(set) var sessions: [ComputerTaskSession] = []
     var onResult: ((ComputerTaskSession, String) -> Void)?
     var onReview: ((ComputerTaskSession, String) -> Void)?
+    var onQuestion: ((ComputerTaskSession, CodexQuestionRequest) -> Void)?
     private let browserFactory: @MainActor () -> BrowserWorkspace
     private let workerFactory: @MainActor (BrowserWorkspace) -> CodexWorker
     private var sessionObservers: [UUID: AnyCancellable] = [:]
@@ -198,12 +214,16 @@ final class ComputerTaskManager: ObservableObject {
                                           browser: browser, worker: workerFactory(browser))
         session.onResult = { [weak self] session, text in self?.onResult?(session, text) }
         session.onReview = { [weak self] session, text in self?.onReview?(session, text) }
+        session.onQuestion = { [weak self] session, question in self?.onQuestion?(session, question) }
         sessionObservers[session.id] = session.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         sessions.append(session)
         return session
     }
 
     func stopAll() {
-        for session in sessions { session.stop() }
+        for session in sessions {
+            session.stop()
+            Task { await session.detach() }
+        }
     }
 }
