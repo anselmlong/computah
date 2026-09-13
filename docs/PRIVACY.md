@@ -4,7 +4,9 @@ Computah stores the voice and screen-reading API key in macOS Keychain, not User
 
 Screenshots and captions remain in app memory rather than a Computah transcript archive. During conversation, new utterances trigger display capture, and routing sends the available display image and selected crop to OpenAI even when it ultimately chooses a direct answer. Screen interpretation also sends those images. Circling does not mean only the crop leaves your Mac. Requests set `store: false`, which does not promise that OpenAI retains no request data under its service policies.
 
-Microphone audio is sent to OpenAI during a conversation. Avoid exposing unrelated private information on the display or in audible conversation.
+When "Listen for Hey, computah" is enabled and Microphone and Speech Recognition access are granted, Computah uses the microphone between conversations to recognize the wake phrase locally. Wake recognition requires on-device English support and never falls back to server recognition. Computah does not store background transcripts or send background audio to OpenAI. Turn the switch off in settings to stop wake listening. Wake listening pauses during conversations and resumes after they end. Quitting stops it entirely.
+
+Microphone audio is sent to OpenAI during a conversation, including one started by "Hey, computah." Clicking outside the notch collapses the panel without ending the conversation or its microphone stream. Use **End conversation** or the conversation key to end voice. Avoid exposing unrelated private information on the display or in audible conversation.
 
 Computer tasks use native Codex Computer Use in the user's existing applications. They share the desktop, application state, and signed-in sessions. There is no separate private browser, cookie store, or isolated desktop per task. A worker may observe unrelated content visible in an application it can access.
 

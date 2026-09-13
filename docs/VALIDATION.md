@@ -1,18 +1,18 @@
 # Validation record
 
-## Native Codex worker pass — 2026-09-13
+## Build 21 pass — 2026-09-13
 
-These results apply to the merge working tree and the normal Codex worker architecture. The YOLO configuration and worker-to-voice question flow are covered by the 76-test Swift run and packaged in build 20.
+These results apply to the merged working tree and the normal Codex worker architecture. The 80-test Swift run covers the YOLO configuration, worker-to-voice question flow, wake phrase, and notch dismissal. Build 21 packages that code.
 
 | Check | Result |
 | --- | --- |
-| `swift test` | 71 passed |
+| `swift test` | 80 passed |
 | Focused worker tests before the merge | 15 passed, including installed Codex handshake, fake app-approval continuation, concurrency, and current-directory preservation |
 | Python release tests | Eight passed |
 | Node website tests | Six passed |
 | Installer compilation | Passed |
-| Installed release | Build 20 signed, notarized, stapled, accepted by Gatekeeper, installed, and restarted |
-| Installed notch UI | 273 by 32 point idle geometry and face-only idle control verified; face-click open/close passed twice on build 17 with unchanged interaction code in build 20 |
+| Installed release | Build 21 signed, notarized, stapled, accepted by Gatekeeper, installed, and running |
+| Historical installed notch UI | Build 20 verified the 273 by 32 point idle geometry and face-only idle control; face-click open/close passed twice on build 17, whose interaction code remained unchanged in build 20 |
 | Native Computer Use probe | Astra loaded native Computer Use and emitted MCP app approval; decline returned the expected not-approved result |
 | Approval acceptance probe | Stalled before the tool request; no successful Calculator observation or complete task is claimed |
 
@@ -21,6 +21,12 @@ Hover opening, physical outside-click collapse, the in-app **Allow once** contin
 Worker-question tests verify that structured requests keep the same app-server turn alive, concurrent request IDs stay isolated by task, only grounded user speech becomes an answer, unrelated or ambiguous speech does not advance the worker, task-card forms submit complete answers, and secret fields stay out of voice transport. A live spoken worker-question exchange remains unverified.
 
 Earlier validation below describes the retired private WebKit task runtime where stated. Keep it as historical evidence for the website, release tooling, voice, capture, and fixture code rather than evidence for current Computer Use behavior.
+
+## Local Xcode verification — 2026-09-13
+
+With Xcode 26.6 (17F113) installed, the incoming wake-word working tree passed all 58 XCTest tests with zero failures or skips, including four wake-phrase and notch-dismissal tests. Release compilation also passed. Both commands used `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`; the system-wide selection remains Command Line Tools because changing it requires administrator authentication. This supersedes the earlier local XCTest toolchain blocker for that working tree.
+
+`Resources/Info.plist` validation and `git diff --check` passed. The app was then packaged with explicit ad hoc signing and launched for user testing. After changing the phrase to "Hey, computah" and adding a spoken acknowledgment on connection, all 58 tests passed again and local build 2 was launched. No Apple Development or Developer ID signing identity was present. These tests do not verify spoken wake detection through a real microphone or an authenticated voice conversation.
 
 ## Demo-readiness pass — 2026-09-13
 

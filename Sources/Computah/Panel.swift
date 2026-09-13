@@ -328,6 +328,14 @@ struct IslandView: View {
             }.pickerStyle(.menu).font(.system(size: 12))
             Text("Tap to start or end conversation. Hold and drag to circle. Your conversation key choice is saved.")
                 .font(.system(size: 11)).foregroundStyle(secondaryInk).fixedSize(horizontal: false, vertical: true)
+            Toggle("Listen for “Hey, computah”", isOn: $model.wakeWordEnabled)
+                .toggleStyle(.switch).font(.system(size: 12)).tint(leaf)
+            Text(model.wakeWordStatus)
+                .font(.system(size: 11)).foregroundStyle(secondaryInk).fixedSize(horizontal: false, vertical: true)
+            if model.wakeWordEnabled && (!model.speechAllowed || !model.microphoneAllowed) {
+                Button(model.wakePermissionPending ? "Requesting access…" : "Allow wake listening", action: model.requestWakeAccess)
+                    .controlSize(.small).disabled(model.wakePermissionPending)
+            }
             permissionRow("Microphone", allowed: model.microphoneAllowed,
                 action: model.requestMicrophoneAccess, openSettings: Permissions.openMicrophoneSettings)
             permissionRow("Screen Recording", allowed: model.screenAllowed,
@@ -451,29 +459,40 @@ final class PanelController {
                     self.resize()
                 }
             })
-        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+        let clicks: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: clicks) { [weak self] event in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                // Clicks in native popovers/menus owned by Computah stay inside its workflow.
-                if event.window == nil || event.window === self.panel || event.window?.parent === self.panel { return }
-                self.collapseIfOutside()
+                // Child windows include native popovers and menu controls inside the panel.
+                var window = event.window
+                while let current = window {
+                    if current === self.panel { return }
+                    window = current.parent
+                }
+                self.dismissIfOutside(NSEvent.mouseLocation)
             }
             return event
         }
-        globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-            Task { @MainActor in self?.collapseIfOutside() }
+        globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: clicks) { [weak self] _ in
+            Task { @MainActor in self?.dismissIfOutside(NSEvent.mouseLocation) }
         }
         resize(); panel.orderFrontRegardless()
     }
 
-    private func collapseIfOutside() {
-        guard model.expanded, !panel.frame.contains(NSEvent.mouseLocation) else { return }
+    func dismissIfOutside(_ point: NSPoint) {
+        guard model.expanded, !panel.frame.contains(point) else { return }
         model.expanded = false
+        resize()
     }
 
     deinit {
         if let localClickMonitor { NSEvent.removeMonitor(localClickMonitor) }
         if let globalClickMonitor { NSEvent.removeMonitor(globalClickMonitor) }
+        revealTimer?.invalidate()
+        for observer in observers {
+            NotificationCenter.default.removeObserver(observer)
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+        }
     }
 
     func resize() {

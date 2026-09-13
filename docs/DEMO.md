@@ -41,4 +41,4 @@ This legacy harness uses SwiftUI views and the retired WebKit fixture path with 
 
 ## What is ready, and what comes next
 
-The native interface, routing, normal Codex worker transport, app-approval UI, and release tooling are implemented. See the [validation record](VALIDATION.md) for observed test results. Build 20 proved Developer ID signing and notarization. A full authenticated voice, vision, and native Computer Use rehearsal, wider hardware testing, enforced review controls, and resource limits for long-running use remain open.
+The native interface, routing, normal Codex worker transport, app-approval UI, and release tooling are implemented. See the [validation record](VALIDATION.md) for observed test results. Build 21 is signed with Developer ID and notarized. A full authenticated voice, vision, and native Computer Use rehearsal, wider hardware testing, enforced review controls, and resource limits for long-running use remain open.

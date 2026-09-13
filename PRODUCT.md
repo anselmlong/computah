@@ -42,7 +42,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the implementation decisions and [doc
 
 ## Current validation
 
-Build 20 is installed, signed, notarized, stapled, and accepted by Gatekeeper. All 76 Swift tests pass. Automated tests cover the installed Codex handshake, native approval continuation, concurrent task isolation, worker-question continuation, voice-answer grounding, task-card fallback, and secret-field handling. A live Astra probe reached native app approval, but its acceptance run stalled before the tool request. Successful app observation, a complete Computer Use task, and a live spoken worker-question exchange remain unverified.
+Build 21 is installed, signed, notarized, stapled, and accepted by Gatekeeper. All 80 Swift tests pass. Automated tests cover the installed Codex handshake, native approval continuation, concurrent task isolation, worker-question continuation, voice-answer grounding, task-card fallback, secret-field handling, wake-phrase matching, and notch dismissal. A live Astra probe reached native app approval, but its acceptance run stalled before the tool request. Successful app observation, a complete Computer Use task, and a live spoken worker-question exchange remain unverified.
 
 ## Brand commitments
 

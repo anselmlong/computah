@@ -2,6 +2,7 @@ import SwiftUI
 import AVFoundation
 import ApplicationServices
 import Combine
+import Speech
 
 enum CompanionState: String {
     case idle = "Ready when you are"
@@ -47,6 +48,18 @@ final class AppModel: ObservableObject {
     @Published var microphoneAllowed = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
     @Published var seconds: Double = 0
     @Published var active = false
+    @Published var wakeWordEnabled = UserDefaults.standard.object(forKey: "wakeWordEnabled") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(wakeWordEnabled, forKey: "wakeWordEnabled")
+            updateWakeListening()
+        }
+    }
+    @Published var speechAllowed = SFSpeechRecognizer.authorizationStatus() == .authorized
+    @Published var wakeWordStatus = "Allow Microphone and Speech Recognition to use Hey, computah."
+    @Published var wakePermissionPending = false
+    private let wakeListener = WakeWordListener()
+    private var shuttingDown = false
+    private var wakeGreetingPending = false
     @Published var reading = false
     let live = LiveConnection()
     let audio = AudioEngine()
@@ -104,6 +117,8 @@ final class AppModel: ObservableObject {
          credentialStore: any CredentialStore = KeychainCredentialStore()) {
         self.enableShortcuts = enableShortcuts
         self.credentialStore = credentialStore
+        wakeListener.onWake = { [weak self] in self?.wake() }
+        wakeListener.onStatus = { [weak self] in self?.wakeWordStatus = $0 }
         managerObservation = taskManager.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         taskManager.onResult = { [weak self] session, result in self?.taskFinished(session, result: result, review: false) }
         taskManager.onReview = { [weak self] session, result in self?.taskFinished(session, result: result, review: true) }
@@ -165,7 +180,9 @@ final class AppModel: ObservableObject {
         if savedKey != apiKey.trimmingCharacters(in: .whitespacesAndNewlines), !persistCurrentKey() {
             settings = true; return
         }
+        wakeListener.stop()
         active = true; state = .connecting; error = nil; audioNotice = nil; voiceDiagnostics = "Starting voice connection"; findings = ""; seconds = 0
+        updateWakeListening()
         ledger = TranscriptLedger(); captions = []; handled = []; pendingDelegations = []
         lastInputEnd = -.infinity; lastUserArrival = .distantPast; lastRoutedText = ""
         generation = UUID()
@@ -181,6 +198,7 @@ final class AppModel: ObservableObject {
 
     /// Ending the voice session leaves independent computer work running.
     func stop() {
+        wakeGreetingPending = false
         generation = UUID(); active = false; reading = false
         pendingStart?.cancel(); analysisTask?.cancel(); captureTask?.cancel()
         selectionTask?.cancel(); selection.cancel()
@@ -190,7 +208,48 @@ final class AppModel: ObservableObject {
         workerQuestionQueue.removeAll(); activeWorkerQuestion = nil
         workerQuestionOutputObserved = false; workerQuestionAnswerReady = false
         workerQuestionArmTask?.cancel(); workerQuestionArmTask = nil
+        updateWakeListening()
     }
+
+    func wake() {
+        guard wakeWordEnabled, !shuttingDown, !active else { return }
+        settings = false
+        toggle()
+        wakeGreetingPending = active
+        // Missing credentials can open settings without starting a session.
+        updateWakeListening()
+    }
+
+    private func updateWakeListening() {
+        guard enableShortcuts, !shuttingDown, wakeWordEnabled, !active else {
+            wakeListener.stop()
+            wakeWordStatus = active ? "Wake listening pauses during your conversation." : "Wake listening is off."
+            return
+        }
+        wakeListener.start()
+    }
+
+    func requestWakeAccess() {
+        guard !wakePermissionPending else { return }
+        wakePermissionPending = true
+        Task { [weak self] in
+            let microphone = await Permissions.requestMicrophone()
+            if microphone {
+                if SFSpeechRecognizer.authorizationStatus() == .notDetermined {
+                    _ = await withCheckedContinuation { continuation in
+                        SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
+                    }
+                } else if SFSpeechRecognizer.authorizationStatus() != .authorized {
+                    Permissions.openSpeechSettings()
+                }
+            }
+            guard let self else { return }
+            self.wakePermissionPending = false
+            self.refreshPermissions()
+        }
+    }
+
+    func shutdownWakeListening() { shuttingDown = true; wakeListener.stop() }
 
     func stopTask(_ session: ComputerTaskSession) { session.stop() }
     func stopAllTasks() { taskManager.stopAll() }
@@ -430,7 +489,7 @@ final class AppModel: ObservableObject {
         catch { credentialNotice = error.localizedDescription }
     }
 
-    func quit() { shortcutRetryTask?.cancel(); permissionTask?.cancel(); stop(); taskManager.stopAll(); apiKey = ""; NSApp.terminate(nil) }
+    func quit() { shutdownWakeListening(); shortcutRetryTask?.cancel(); permissionTask?.cancel(); stop(); taskManager.stopAll(); apiKey = ""; NSApp.terminate(nil) }
 
     private func fail(_ message: String) { stop(); error = message; state = .failed; expanded = true }
 
@@ -458,6 +517,9 @@ final class AppModel: ObservableObject {
         let status = Permissions.read()
         microphoneAllowed = status.microphoneAllowed
         accessibilityAllowed = status.accessibilityAllowed
+        speechAllowed = SFSpeechRecognizer.authorizationStatus() == .authorized
+        if !microphoneAllowed || !speechAllowed { wakeListener.stop() }
+        updateWakeListening()
         shortcutAvailable = enableShortcuts ? hotkey.install() : false
         inputMonitoringAllowed = status.inputMonitoringAllowed
         retryShortcutIfNeeded()
@@ -555,6 +617,12 @@ final class AppModel: ObservableObject {
                 live.send(LiveProtocol.append("Screen reading is available when screen permission is granted. Answer simple questions directly. Delegate screen questions or computer tasks. Computer tasks use the normal installed Codex CLI and the user’s signed-in Codex account: \(codexInstalled ? "Codex is installed." : codexInstallationStatus) Never claim an action occurred when unavailable. Never submit applications; wait for explicit user review."))
                 if runningTaskCount > 0 { append("Independent computer tasks are running:\n" + taskContext) }
                 rebuildWorkerQuestionQueue()
+                if wakeGreetingPending {
+                    wakeGreetingPending = false
+                    if workerQuestionQueue.isEmpty {
+                        append("The user just woke you by saying Hey, computah. Respond now with a brief acknowledgment: Hey! I'm here. Then listen for their request.", speak: true)
+                    }
+                }
                 presentNextWorkerQuestion()
             } catch { fail("Microphone could not start: \(error.localizedDescription)") }
         case "session.output_audio.delta":
