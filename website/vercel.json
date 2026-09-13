@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "headers": [
+    { "source": "/downloads/Computah.zip", "headers": [
+      { "key": "Content-Type", "value": "application/zip" },
+      { "key": "Content-Disposition", "value": "attachment; filename=\"Computah.zip\"" },
+      { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+    ] },
+    { "source": "/(.*)", "headers": [
+      { "key": "X-Content-Type-Options", "value": "nosniff" },
+      { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+    ] }
+  ]
+}

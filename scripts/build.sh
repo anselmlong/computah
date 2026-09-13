@@ -51,9 +51,20 @@ if [[ -f "$final_bundle/Contents/Info.plist" ]]; then
     previous_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$final_bundle/Contents/Info.plist" 2>/dev/null || true)"
 fi
 if [[ "$previous_version" != <-> ]]; then previous_version=0; fi
-build_version=$((10#${previous_version} + 1))
+build_version="${COMPUTAH_BUILD_VERSION:-$((10#${previous_version} + 1))}"
+if [[ ! "$build_version" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+    print -u2 -- "Invalid COMPUTAH_BUILD_VERSION"
+    exit 1
+fi
 build_date="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 staged_info="$staged_bundle/Contents/Info.plist"
+if [[ -n "${COMPUTAH_RELEASE_VERSION:-}" ]]; then
+    if [[ ! "$COMPUTAH_RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        print -u2 -- "Release version must be major.minor.patch"
+        exit 1
+    fi
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $COMPUTAH_RELEASE_VERSION" "$staged_info"
+fi
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $build_version" "$staged_info"
 if ! /usr/libexec/PlistBuddy -c "Set :ComputahBuildDate $build_date" "$staged_info" 2>/dev/null; then
     /usr/libexec/PlistBuddy -c "Add :ComputahBuildDate string $build_date" "$staged_info"

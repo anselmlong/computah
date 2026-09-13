@@ -55,7 +55,7 @@ The voice model receives text findings from vision rather than screenshot images
 
 ## Pitch screenshots
 
-The pitch site at [computah2.anselmlong.com](https://computah2.anselmlong.com) lives separately in the `computah` repository under `static/computah2`. Its downloadable ZIP is managed separately from this repository’s `dist/` build.
+The pitch site at [computah2.anselmlong.com](https://computah2.anselmlong.com) was originally maintained in the `computah` repository under `static/computah2`. The site source is now tracked in `website/`, and version-tag releases publish the matching ZIP through the pipeline described in [RELEASES.md](RELEASES.md).
 
 To reproduce the native interface captures used for the master’s application example:
 
@@ -78,6 +78,10 @@ The worker requests a read-only Codex sandbox, disables built-in execution tools
 ## Live website-discovery test
 
 Run `zsh scripts/run-browser-research-smoke.sh` to send a real public NUS program research request through the text router and browser worker. An optional quoted argument replaces the request. This explicitly uses the saved Computah API key and incurs API usage. It prints the routed task, visited URLs, and result without printing the key. It does not test voice input or application submission. The worker has a four-minute timeout; credential loading and routing happen before that timer.
+
+## CI and tagged releases
+
+Source pushes and pull requests run build/tests on a hosted Mac. Push a version tag such as `v0.1.1` to build, update the website download, and reopen the app on the configured personal Mac after checks pass. Dry-run and preview modes are available. See [RELEASES.md](RELEASES.md) for setup, testing, and signing limitations.
 
 ## Verification
 
