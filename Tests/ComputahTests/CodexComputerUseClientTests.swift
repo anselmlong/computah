@@ -24,7 +24,7 @@ final class CodexComputerUseClientTests: XCTestCase {
                 name=msg['params']['name']
                 with open(trace,'a') as log: log.write(name+' start\\n')
                 if mode=='delay' and name=='click': time.sleep(0.1)
-                if mode=='permission-delay' and name=='list_apps': time.sleep(0.3)
+                if mode=='permission-delay' and name=='list_apps': time.sleep(3)
                 with open(trace,'a') as log: log.write(name+' finish\\n')
                 if mode=='timeout': time.sleep(5);continue
                 if mode=='metadata': sys.exit(0)
@@ -33,7 +33,7 @@ final class CodexComputerUseClientTests: XCTestCase {
             print(json.dumps({'jsonrpc':'2.0','id':msg['id'],'result':result}),flush=True)
         """
         try source.write(to: script, atomically: true, encoding: .utf8)
-        let client = CodexComputerUseClient(executable: URL(fileURLWithPath: "/usr/bin/python3"), arguments: [script.path, mode, folder.appendingPathComponent("trace").path], environment: ["PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"], timeout: 0.15, accessibilityTrusted: { accessibilityTrusted })
+        let client = CodexComputerUseClient(executable: URL(fileURLWithPath: "/usr/bin/python3"), arguments: [script.path, mode, folder.appendingPathComponent("trace").path], environment: ["PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"], timeout: 1.0, accessibilityTrusted: { accessibilityTrusted })
         return (client, folder)
     }
     @MainActor
