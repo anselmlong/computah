@@ -41,7 +41,7 @@ For local packaging tests, run `python3 scripts/release.py --tag v0.1.1 --mode d
 
 ## Personal Mac setup
 
-The repo must remain private for this personal runner configuration. The runner is registered only to `anselmlong/computah2` and labeled `computah-release`. It uses the logged-in user's launch agent so it can open the app on that desktop. The Mac needs to be awake, online, and logged in; otherwise releases queue until the runner becomes available. Only trusted maintainers should be able to push version tags or modify the release workflow: those jobs run code as this Mac user.
+The repo must remain private for this personal runner configuration. The runner is registered only to `anselmlong/computah` (renamed from `computah2`; the registration carried over automatically) and labeled `computah-release`. It uses the logged-in user's launch agent so it can open the app on that desktop. The Mac needs to be awake, online, and logged in; otherwise releases queue until the runner becomes available. Only trusted maintainers should be able to push version tags or modify the release workflow: those jobs run code as this Mac user.
 
 Tagged app releases use the existing local Vercel helper on the Mac. Website CI uses the encrypted GitHub Vercel token secret described above; Apple signing credentials remain on the Mac. Setup requires an authenticated `gh`, Python 3, Node, Swift command-line tools, and the existing deployment helper:
 
