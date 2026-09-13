@@ -1,0 +1,9 @@
+.build/
+dist/
+.DS_Store
+codedb.snapshot*
+.impeccable/mocks/
+.env
+.env.*
+*.xcuserstate
+xcuserdata/
