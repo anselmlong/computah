@@ -31,6 +31,8 @@ final class CodexWorkerTests: XCTestCase {
         XCTAssertEqual(environment["HOME"], directory.path)
         XCTAssertEqual(environment["CODEX_HOME"], directory.path)
         XCTAssertEqual(environment["OPENAI_API_KEY"], "test-not-a-real-key")
+        XCTAssertTrue(CodexWorkerProtocol.arguments.contains("web_search=\"live\""))
+        XCTAssertTrue(CodexWorkerProtocol.arguments.contains("model_providers.computah_openai.supports_standalone_web_search=true"))
         XCTAssertNil(environment["CODEX_THREAD_ID"])
         XCTAssertNil(environment["HTTP_PROXY"])
         XCTAssertFalse(CodexWorkerProtocol.arguments.joined().contains("test-not-a-real-key"))
@@ -185,6 +187,21 @@ final class CodexWorkerTests: XCTestCase {
         worker.takeOverForReview()
         XCTAssertEqual(worker.status, "You control the browser")
         XCTAssertFalse(worker.running)
+    }
+
+    @MainActor
+    func testLiveWebSearchDoesNotStopBrowserWorker() async throws {
+        _ = NSApplication.shared
+        let worker = fakeWorker(events: [
+            #"{"method":"turn/started","params":{"threadId":"thread-test","turn":{"id":"turn-test"}}}"#,
+            #"{"method":"item/started","params":{"threadId":"thread-test","turnId":"turn-test","item":{"type":"webSearch","id":"search"}}}"#,
+            #"{"method":"item/completed","params":{"threadId":"thread-test","turnId":"turn-test","item":{"type":"webSearch","id":"search"}}}"#,
+            #"{"method":"item/completed","params":{"threadId":"thread-test","turnId":"turn-test","item":{"type":"agentMessage","id":"answer","phase":"final_answer","text":"Found the official program."}}}"#,
+            #"{"method":"turn/completed","params":{"threadId":"thread-test","turn":{"id":"turn-test","status":"completed"}}}"#
+        ])
+        try await worker.start(task: "find official program", context: "", apiKey: "dummy-no-real-credentials")
+        XCTAssertEqual(worker.status, "Finished")
+        XCTAssertEqual(worker.result, "Found the official program.")
     }
 
     @MainActor

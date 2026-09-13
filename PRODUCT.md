@@ -28,14 +28,14 @@ Have a spoken conversation about what is on screen, point by circling, and deleg
 - Ending a conversation leaves browser tasks running. Stopping a task stops its worker; quitting stops all workers.
 - Settings save, replace, or remove the API key in macOS Keychain. The app loads it at startup and supplies it to worker processes through their environments.
 - Each task browser uses its own nonpersistent website data store, separately from the user's usual browser.
-- The conversation shows one live transcript of user and assistant speech, without a duplicate full-history section.
+- Active conversation shows compact, labeled live subtitles for the user and assistant. A scrollable transcript appears after the conversation ends.
 - Native desktop automation is outside this prototype's scope. It would need a separate desktop execution environment.
 
 ## Implementation decisions
 
 The user chose Swift and asked to see the first version while development continued, explicitly waiving the understanding checkpoint for this implementation. The worker starts with an isolated temporary home and requests read-only access, with built-in execution tools disabled. It does not reuse the user's Codex configuration or account plugins.
 
-This version supports local build and tests. Authenticated end-to-end API behavior remains unverified in the build environment because API credentials were absent.
+This version builds locally and includes automated tests. The latest local test run is blocked by missing XCTest in the active toolchain; see README.md for dated verification status. Authenticated text routing and browser research have been verified against the official NUS Master of Computing General Track pages. Full voice/vision execution and a real application portal remain unverified.
 
 ## Brand commitments
 

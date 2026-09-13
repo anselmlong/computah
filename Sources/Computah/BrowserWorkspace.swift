@@ -180,7 +180,8 @@ final class BrowserWorkspace: NSObject, ObservableObject, WKNavigationDelegate, 
             const r=e.getBoundingClientRect();
             const label=(e.getAttribute('aria-label') || e.innerText || e.placeholder || e.name || e.tagName).slice(0,120);
             const value=e.type==='password' ? '[password hidden]' : (e.value || '').slice(0,200);
-            return `${e.tagName.toLowerCase()} ${label} ${value} at (${Math.round(r.x+r.width/2)},${Math.round(r.y+r.height/2)})`;
+            const destination=e.tagName==='A' && /^https?:$/.test(e.protocol) ? ` href=${e.href.slice(0,2048)}` : '';
+            return `${e.tagName.toLowerCase()} ${label} ${value}${destination} at (${Math.round(r.x+r.width/2)},${Math.round(r.y+r.height/2)})`;
           });
           return JSON.stringify({title:document.title,url:location.href,viewport:{width:innerWidth,height:innerHeight},text:(document.body?.innerText || '').slice(0,14000),controls:fields});
         })()

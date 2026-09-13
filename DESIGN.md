@@ -16,7 +16,7 @@ The main accent is RGB `0.82, 0.95, 0.55`, approximately `#D1F28C`. Backgrounds 
 
 ## Conversation
 
-The expanded header shows Computah and a plain-language state. Before the first utterance, the panel explains the right Shift shortcut. A single expanded live transcript shows both the user and Computah, distinguished by speaker labels. The panel does not repeat the full history in a second section. A screen-context row shows whether the current display or circled region is included, with a Clear action for a selection.
+The expanded header shows Computah and a plain-language state. Before the conversation starts, the panel explains the configured shortcut. During a conversation, compact live subtitles show the latest user and Computah speech in separate labeled rows. The user row shows one line and the assistant row shows two, keeping the newest text visible. After the conversation ends, a scrollable transcript is available. A screen-context row shows whether the current display or circled region is included, with a Clear action for a selection.
 
 The main button starts or ends the conversation. Each concurrent task has a title, status, private browser preview, open/review/stop controls, and result. Pausing voice does not stop these independent workers.
 
@@ -30,6 +30,6 @@ Clicking the task thumbnail or asking to show the browser opens a larger window 
 
 ## Pointing and access
 
-Holding right Shift reveals a temporary selection overlay on the display under the pointer. Dragging draws a lime lasso; the app captures its rectangular bounds as a crop alongside the whole display. Escape cancels. The Start talking button remains usable when Input Monitoring is unavailable.
+Holding the configured conversation key (Right Shift by default) reveals a temporary selection overlay on the display under the pointer. Dragging draws a lime lasso; the app captures its rectangular bounds as a crop alongside the whole display. Escape cancels. The Start talking button remains usable when Input Monitoring is unavailable.
 
 The interface labels icon controls for accessibility, uses system typography, permits caption and result text selection, and responds to Reduce Motion. Native mouse and keyboard events used for pointing belong to the user; worker browser tools do not drive the system cursor.
