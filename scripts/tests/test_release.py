@@ -1,8 +1,10 @@
 import importlib.util
+import io
 import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("release", Path(__file__).parents[1] / "release.py")
 release = importlib.util.module_from_spec(spec)
@@ -40,6 +42,24 @@ class ReleaseTests(unittest.TestCase):
             (root / "app.zip").write_bytes(b"zip")
             with self.assertRaises(ValueError):
                 release.stage_site(root / "source", root / "stage", root / "app.zip", dict(version="1.0.0", build="1"))
+
+    def test_public_download_must_match_manifest_and_checksum(self):
+        data = b"the exact shipped archive"
+        metadata = dict(download="/downloads/Computah.zip", sha256=release.hashlib.sha256(data).hexdigest())
+        for downloaded in [data, b"stale or corrupted archive"]:
+            def response(url, **kwargs):
+                return io.BytesIO(json.dumps(metadata).encode() if url.endswith("release.json") else downloaded)
+            with patch.object(release.urllib.request, "urlopen", side_effect=response), patch.object(release.time, "sleep"):
+                if downloaded == data:
+                    release.verify_deployment("https://example.com", metadata)
+                else:
+                    with self.assertRaisesRegex(RuntimeError, "checksum"):
+                        release.verify_deployment("https://example.com", metadata)
+
+    def test_stale_public_manifest_blocks_installation(self):
+        with patch.object(release.urllib.request, "urlopen", side_effect=lambda *args, **kwargs: io.BytesIO(b'{}')), patch.object(release.time, "sleep"):
+            with self.assertRaisesRegex(RuntimeError, "manifest"):
+                release.verify_deployment("https://example.com", dict(download="/downloads/Computah.zip", sha256="expected"))
 
 
 if __name__ == "__main__":

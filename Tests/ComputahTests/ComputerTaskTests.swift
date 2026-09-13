@@ -168,7 +168,7 @@ private final class ComputerTaskTestPeer {
         ComputerTaskManager(workerFactory: { browser in
             let index = self.nextIndex
             self.nextIndex += 1
-            return CodexWorker(browser: browser, rpcFactory: { _, _, environment, directory in
+            return CodexWorker(browser: browser, resolveExecutable: { URL(fileURLWithPath: "/bin/sh") }, rpcFactory: { _, _, environment, directory in
                 let script = """
                 IFS= read -r fixture_line
                 printf '%s\\n' '{"id":1,"result":{}}'
