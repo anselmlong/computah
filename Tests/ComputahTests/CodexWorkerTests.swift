@@ -3,6 +3,28 @@ import AppKit
 @testable import Computah
 
 final class CodexWorkerTests: XCTestCase {
+    func testExecutableDiscoveryWithFinderPathAndUserInstall() {
+        let expected = "/Users/test/.local/bin/codex"
+        let result = CodexExecutable.resolve(environment: ["PATH": "/usr/bin:/bin"],
+                                             home: URL(fileURLWithPath: "/Users/test"),
+                                             isExecutable: { $0 == expected })
+        XCTAssertEqual(result?.path, expected)
+    }
+
+    func testExecutableDiscoveryUsesPathAndFallsBackToHomebrew() {
+        for expected in ["/custom/bin/codex", "/opt/homebrew/bin/codex", "/usr/local/bin/codex"] {
+            let result = CodexExecutable.resolve(environment: ["PATH": "/custom/bin:/usr/bin"],
+                                                 isExecutable: { $0 == expected })
+            XCTAssertEqual(result?.path, expected)
+        }
+    }
+
+    func testExecutableDiscoveryRejectsRelativePathsAndMissingExecutables() {
+        XCTAssertNil(CodexExecutable.resolve(environment: ["PATH": ":.:relative/bin"],
+                                              isExecutable: { !$0.hasPrefix("/") }))
+        XCTAssertNil(CodexExecutable.resolve(isExecutable: { _ in false }))
+    }
+
     func testWorkerConfigurationExcludesInheritedCredentialsAndHostTools() throws {
         let directory = URL(fileURLWithPath: "/tmp/isolated-computah")
         let environment = CodexWorkerProtocol.environment(directory: directory, apiKey: "test-not-a-real-key")
@@ -96,8 +118,7 @@ final class CodexWorkerTests: XCTestCase {
 
     @MainActor
     func testInstalledCodexHandshakeUsesOnlyDummyCredential() async throws {
-        let executable = URL(fileURLWithPath: "/opt/homebrew/bin/codex")
-        guard FileManager.default.isExecutableFile(atPath: executable.path) else { throw XCTSkip("Codex CLI is not installed") }
+        guard let executable = CodexExecutable.resolve() else { throw XCTSkip("Codex CLI is not installed") }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("computah-worker-test-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let rpc = CodexRPC(executable: executable, arguments: CodexWorkerProtocol.arguments,
@@ -196,7 +217,7 @@ final class CodexWorkerTests: XCTestCase {
         \(eventPrints)
         while IFS= read -r fixture_line; do :; done
         """
-        return CodexWorker(browser: BrowserWorkspace(), rpcFactory: { _, _, environment, directory in
+        return CodexWorker(browser: BrowserWorkspace(), resolveExecutable: { URL(fileURLWithPath: "/bin/sh") }, rpcFactory: { _, _, environment, directory in
             CodexRPC(executable: URL(fileURLWithPath: "/bin/sh"), arguments: ["-c", script], environment: environment, directory: directory)
         })
     }

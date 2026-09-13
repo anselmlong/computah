@@ -182,6 +182,25 @@ final class CodexRPC {
     }
 }
 
+enum CodexExecutable {
+    static func resolve(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        home: URL = FileManager.default.homeDirectoryForCurrentUser,
+        isExecutable: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }
+    ) -> URL? {
+        // Finder launches have a minimal PATH. Check user installs explicitly as well.
+        let pathCandidates = (environment["PATH"] ?? "").split(separator: ":")
+            .filter { $0.hasPrefix("/") }
+            .map { URL(fileURLWithPath: String($0)).appendingPathComponent("codex").path }
+        let candidates = pathCandidates + [
+            home.appendingPathComponent(".local/bin/codex").path,
+            "/opt/homebrew/bin/codex", "/usr/local/bin/codex",
+            home.appendingPathComponent(".cargo/bin/codex").path
+        ]
+        return candidates.first(where: isExecutable).map { URL(fileURLWithPath: $0) }
+    }
+}
+
 enum CodexWorkerProtocol {
     static let model = "gpt-5.6-sol"
     static let provider = "computah_openai"
@@ -267,6 +286,7 @@ final class CodexWorker: ObservableObject {
     var onResult: ((String) -> Void)?
     var onReview: ((String) -> Void)?
     private let browser: BrowserWorkspace
+    private let resolveExecutable: () -> URL?
     private let rpcFactory: @MainActor (URL, [String], [String: String], URL) -> CodexRPC
     private var rpc: CodexRPC?
     private var generation = UUID()
@@ -279,10 +299,12 @@ final class CodexWorker: ObservableObject {
     private var lastToolTask: Task<Void, Never>?
     private var seenToolCalls: Set<String> = []
 
-    init(browser: BrowserWorkspace, rpcFactory: @escaping @MainActor (URL, [String], [String: String], URL) -> CodexRPC = {
+    init(browser: BrowserWorkspace, resolveExecutable: @escaping () -> URL? = { CodexExecutable.resolve() },
+         rpcFactory: @escaping @MainActor (URL, [String], [String: String], URL) -> CodexRPC = {
         CodexRPC(executable: $0, arguments: $1, environment: $2, directory: $3)
     }) {
         self.browser = browser
+        self.resolveExecutable = resolveExecutable
         self.rpcFactory = rpcFactory
         browser.onReviewRequested = { [weak self] summary in self?.requestReview(summary) }
     }
@@ -292,9 +314,8 @@ final class CodexWorker: ObservableObject {
         guard !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ComputahError.message("Add your OpenAI API key before starting the worker.")
         }
-        let candidates = ["/opt/homebrew/bin/codex", "/usr/local/bin/codex"]
-        guard let executable = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else {
-            throw ComputahError.message("Install the Codex CLI to use the local browser worker.")
+        guard let executable = resolveExecutable() else {
+            throw ComputahError.message("Could not find the Codex CLI. Install it in ~/.local/bin, /opt/homebrew/bin, or /usr/local/bin, or add it to PATH before launching Computah.")
         }
         let token = generation
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("computah-codex-\(UUID().uuidString)", isDirectory: true)
@@ -304,7 +325,7 @@ final class CodexWorker: ObservableObject {
         reviewRequested = false
         result = ""
         status = "Starting local Codex"
-        let connection = rpcFactory(URL(fileURLWithPath: executable), CodexWorkerProtocol.arguments,
+        let connection = rpcFactory(executable, CodexWorkerProtocol.arguments,
                                     CodexWorkerProtocol.environment(directory: directory, apiKey: apiKey), directory)
         rpc = connection
         connection.onMessage = { [weak self] message in

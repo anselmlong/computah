@@ -4,7 +4,7 @@ Computah is a personal macOS prototype for talking about your screen and delegat
 
 ## Build and open
 
-You need macOS 14 or later, an Xcode Swift toolchain, and internet access. Browser tasks also need the Codex CLI at `/opt/homebrew/bin/codex` or `/usr/local/bin/codex`, with support for the app-server protocol and dynamic tools.
+You need macOS 14 or later, an Xcode Swift toolchain, and internet access. Browser tasks also need the Codex CLI with support for the app-server protocol and dynamic tools. Computah checks its inherited `PATH`, then `~/.local/bin/codex`, `/opt/homebrew/bin/codex`, `/usr/local/bin/codex`, and `~/.cargo/bin/codex`. These explicit locations also work when opening the app from Finder, which does not inherit your shell's `PATH`.
 
 ```sh
 zsh scripts/build.sh
