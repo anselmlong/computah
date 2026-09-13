@@ -34,7 +34,7 @@ open dist/Computah.app
 
 You need macOS 14+, a Swift toolchain, and an existing signing identity for the default build. For local development without a certificate, use `COMPUTAH_SIGNING_IDENTITY=- zsh scripts/build.sh`. The website download targets Apple silicon.
 
-Open the notch panel's settings, add your OpenAI API key, and grant Microphone, Screen Recording, and Input Monitoring access as needed. Browser work also requires a compatible Codex CLI. The configured models are `gpt-live-1`, `gpt-5.6-luna`, and `gpt-5.6-sol`; your API account must have access. API usage is billed to that account. See the [full setup and troubleshooting guide](docs/SETUP.md).
+**Bring your own OpenAI API key.** Open the notch panel's Settings, paste your key, and grant Microphone, Screen Recording, and Input Monitoring access as needed. Browser work also requires a compatible Codex CLI. The configured models are `gpt-live-1`, `gpt-5.6-luna`, and `gpt-5.6-sol`; your API account must have access. API usage is billed to that account. See the [full setup and troubleshooting guide](docs/SETUP.md).
 
 ## How it works
 
@@ -63,6 +63,7 @@ The API key is stored in macOS Keychain. Audio and available screen images can b
 | [Setup and usage](docs/SETUP.md) | Build, credentials, permissions, controls, troubleshooting |
 | [Architecture](ARCHITECTURE.md) | How we built it, data flow, modules, and tradeoffs |
 | [Product](PRODUCT.md) / [Interface](DESIGN.md) | Implemented scope and native design |
+| [Usage costs](docs/COSTS.md) | Published API rates and illustrative budgets |
 | [Validation record](docs/VALIDATION.md) | Dated evidence, test commands, and remaining coverage |
 | [Releases](RELEASES.md) | Packaging, signing, deployment, and rollback |
 | [Website](website/README.md) | Static site development and public documentation |

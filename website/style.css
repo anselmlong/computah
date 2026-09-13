@@ -42,3 +42,5 @@
 @media(prefers-reduced-motion:reduce){.typed-request::after{animation:none;display:none}}
 
 .title-measure::after{content:"";display:inline-block;width:7px;height:.82em;vertical-align:-.02em}
+
+.byok-note{font-size:12px;line-height:1.8;color:var(--muted);max-width:50ch;margin-top:8px}.byok-note a,.answer a{color:var(--accent);text-decoration:underline}

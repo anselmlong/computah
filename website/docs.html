@@ -21,19 +21,31 @@
     <div class="docs-intro">
       <h1>A little Computah.<br><span>Here’s how it works.</span></h1>
       <p>A native Mac companion for talking about your screen and delegating browser work. Built for a hackathon, with you in control of the final action.</p>
-      <nav class="docs-nav" aria-label="On this page"><a href="#setup">Setup</a><a href="#architecture">Architecture</a><a href="#data">Data &amp; limits</a><a href="#help">Troubleshooting</a></nav>
+      <nav class="docs-nav" aria-label="On this page"><a href="#setup">Setup</a><a href="#costs">Usage costs</a><a href="#architecture">Architecture</a><a href="#data">Data &amp; limits</a><a href="#help">Troubleshooting</a></nav>
     </div>
     <section id="setup" class="docs-section">
       <h2>Make yourself at home.</h2>
       <p>You need an Apple silicon Mac with macOS 14 or later, internet access, and your own OpenAI API key. Browser tasks also need a compatible Codex CLI with app-server and dynamic-tool support. The configured models are <code>gpt-live-1</code>, <code>gpt-5.6-luna</code>, and <code>gpt-5.6-sol</code>; your account must have access. Usage is billed to your API account.</p>
       <ol>
         <li><strong>Download and open.</strong> Get the app from the <a href="/#installation">download section</a>, unzip it, and move Computah.app to Applications. This prototype is not notarized. Follow normal macOS security controls; do not disable system protections.</li>
-        <li><strong>Add your key.</strong> Click the character or chevron at the top of the display, open settings, and save your key to macOS Keychain. There is no Dock icon or separate menu bar item.</li>
+        <li><strong>Bring your own API key.</strong> Click the character or chevron at the top of the display, open Settings, paste your OpenAI API key, and save it to macOS Keychain. There is no Dock icon or separate menu bar item.</li>
         <li><strong>Allow access.</strong> Microphone enables voice; Screen Recording enables screen context; Input Monitoring enables the conversation key. Use the permission controls in settings. Reopen the app if macOS requests it.</li>
         <li><strong>Check Codex.</strong> Computah checks its inherited PATH, then <code>~/.local/bin</code>, <code>/opt/homebrew/bin</code>, <code>/usr/local/bin</code>, and <code>~/.cargo/bin</code> for the CLI. A Finder launch does not inherit your shell’s PATH.</li>
         <li><strong>Start talking.</strong> Tap Right Shift, or use Start talking. Hold the conversation key and drag to circle a region, then ask about it. Escape cancels the selection.</li>
       </ol>
       <p>Try: “Find the official NUS Master of Computing General Track admissions requirements and summarize them with source links.” Open the task browser to watch. Choose Take over to stop the worker before interacting yourself.</p>
+    </section>
+    <section id="costs" class="docs-section">
+      <h2>Your key. Your usage.</h2>
+      <p>Computah is bring-your-own-key: paste your OpenAI API key into Settings. It is saved in macOS Keychain, and OpenAI bills usage to your API account. Computah does not supply shared credits.</p>
+      <p>Rates checked September 13, 2026, in USD before tax: <a href="https://developers.openai.com/api/docs/models/gpt-live-1">GPT-Live voice</a> is $0.05/minute, metered per second. <a href="https://developers.openai.com/api/docs/models/gpt-5.6-luna">Luna routing and vision</a> cost $0.20/$1.20 per million input/output tokens; <a href="https://developers.openai.com/api/docs/models/gpt-5.6-sol">Sol browser work</a> costs $4/$20. <a href="https://developers.openai.com/api/docs/pricing#tools">Web searches</a> add $0.01/call plus content tokens. Sol’s promotional rates last through at least November 21, 2026.</p>
+      <dl class="docs-help">
+        <dt>Short demo · about $0.65</dt><dd>10 voice minutes; 20,000 input and 2,000 output tokens each for Luna and Sol; 2 searches.</dd>
+        <dt>Research session · about $2.52</dt><dd>30 voice minutes; Luna 60,000 input / 6,000 output; Sol 150,000 input / 15,000 output; 10 searches.</dd>
+        <dt>Heavier hour · about $6.34</dt><dd>60 voice minutes; Luna 120,000 input / 12,000 output; Sol 500,000 input / 50,000 output; 30 searches.</dd>
+      </dl>
+      <p>These are illustrative budgets, not measured or guaranteed costs. Token totals include image/search inputs and reasoning output across all requests, assuming uncached inputs and no long-context surcharge. Retries, cache writes, and taxes are excluded. Long browser tasks can cost more.</p>
+      <p>End voice when finished, and stop browser tasks separately when you no longer need them. Closing a task window does not stop its worker. Check your OpenAI usage dashboard for actual charges.</p>
     </section>
     <section id="architecture" class="docs-section">
       <h2>One conversation.<br>Independent browser work.</h2>
