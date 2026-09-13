@@ -24,7 +24,7 @@ def main():
     parser.add_argument("--signing-identity", required=True, help="Existing code-signing identity, or - for development ad hoc signing")
     parser.add_argument("--project-file", type=Path, required=True, help="Existing Vercel .vercel/project.json")
     args = parser.parse_args()
-    repository = "anselmlong/computah2"
+    repository = "anselmlong/computah"
     if not api(f"repos/{repository}")["private"]:
         raise RuntimeError("This personal release runner is configured for a private repository")
     runner = Path.home() / ".local/share/computah-release-runner"

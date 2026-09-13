@@ -64,7 +64,7 @@ jobs:
   release:
     needs: check
     if: >-
-      github.repository == 'anselmlong/computah2' &&
+      github.repository == 'anselmlong/computah' &&
       ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     runs-on: [self-hosted, macOS, ARM64, computah-release]
