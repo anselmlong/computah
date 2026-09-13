@@ -231,7 +231,7 @@ struct CodexQuestionRequest: Equatable, Sendable, Identifiable {
 }
 
 enum CodexWorkerProtocol {
-    static let model = "gpt-6-astra"
+    static let model = "gpt-5.6-sol"
     static let arguments = [
         "app-server", "--enable", "default_mode_request_user_input", "--listen", "stdio://"
     ]
@@ -411,7 +411,7 @@ final class CodexWorker: ObservableObject {
             guard generation == token else { throw CancellationError() }
             guard response["model"] as? String == CodexWorkerProtocol.model,
                   let thread = response["thread"] as? [String: Any], let id = thread["id"] as? String else {
-                throw ComputahError.message("Codex did not start the requested Astra worker model.")
+                throw ComputahError.message("Codex did not start the requested GPT-5.6 Sol worker model.")
             }
             threadID = id
             status = "Working with Codex"

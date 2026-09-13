@@ -23,7 +23,7 @@ Have a spoken conversation about what is on screen, point by circling, and deleg
 - Screen context includes the full current display and a separate crop when selected. Screen Recording permission is required.
 - Concurrent reasoning tasks use Codex's native Computer Use capability and share the user's Mac app interface. There are no isolated task browsers or desktops.
 - Each task starts a regular `codex app-server` worker under the user's existing `HOME` and `CODEX_HOME`. It inherits the signed-in Codex account, configuration, and plugins, while parent-task identity variables are removed.
-- The worker requests `gpt-6-astra` with high reasoning effort. It uses no custom model provider, direct helper gate, custom Chrome extension, manual extension setup, or private-browser fallback.
+- The worker requests `gpt-5.6-sol` with high reasoning effort. It uses no custom model provider, direct helper gate, custom Chrome extension, manual extension setup, or private-browser fallback.
 - Workers start in YOLO mode with approval policy `never` and sandbox mode `danger-full-access`. The task prompt requires explicit user confirmation before sending, submitting, paying, publishing, accepting terms, or finalizing an application. That instruction is not an enforced runtime approval boundary.
 - Native app access can pause on an MCP elicitation request. **Allow once** or **Don't allow** answers the request over the same app-server connection and keeps the turn alive.
 - Non-secret worker questions are spoken through the active `gpt-live-1` conversation with the task title and available choices. A complete relevant answer returns to the same waiting task. Unrelated speech does not consume the question, ambiguous replies cause a repeat, and the voice model cannot author the answer.
@@ -42,7 +42,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the implementation decisions and [doc
 
 ## Current validation
 
-Build 21 is installed, signed, notarized, stapled, and accepted by Gatekeeper. All 80 Swift tests pass. Automated tests cover the installed Codex handshake, native approval continuation, concurrent task isolation, worker-question continuation, voice-answer grounding, task-card fallback, secret-field handling, wake-phrase matching, and notch dismissal. A live Astra probe reached native app approval, but its acceptance run stalled before the tool request. Successful app observation, a complete Computer Use task, and a live spoken worker-question exchange remain unverified.
+Build 22 is installed, signed, notarized, stapled, and accepted by Gatekeeper. All 80 Swift tests pass. Automated tests cover the installed Codex handshake, native approval continuation, concurrent task isolation, worker-question continuation, voice-answer grounding, task-card fallback, secret-field handling, wake-phrase matching, and notch dismissal. An earlier live Astra probe reached native app approval, but its acceptance run stalled before the tool request. The current GPT-5.6 Sol worker still needs a live check. Successful app observation, a complete Computer Use task, and a live spoken worker-question exchange remain unverified.
 
 ## Brand commitments
 

@@ -1,8 +1,8 @@
 # Validation record
 
-## Build 21 pass — 2026-09-13
+## Build 22 pass — 2026-09-13
 
-These results apply to the merged working tree and the normal Codex worker architecture. The 80-test Swift run covers the YOLO configuration, worker-to-voice question flow, wake phrase, and notch dismissal. Build 21 packages that code.
+These results apply to the merged working tree and the normal Codex worker architecture. The 80-test Swift run covers the YOLO configuration, worker-to-voice question flow, wake phrase, and notch dismissal. Build 22 packages that code.
 
 | Check | Result |
 | --- | --- |
@@ -11,9 +11,9 @@ These results apply to the merged working tree and the normal Codex worker archi
 | Python release tests | Eight passed |
 | Node website tests | Six passed |
 | Installer compilation | Passed |
-| Installed release | Build 21 signed, notarized, stapled, accepted by Gatekeeper, installed, and running |
+| Installed release | Build 22 signed, notarized, stapled, accepted by Gatekeeper, installed, and running |
 | Historical installed notch UI | Build 20 verified the 273 by 32 point idle geometry and face-only idle control; face-click open/close passed twice on build 17, whose interaction code remained unchanged in build 20 |
-| Native Computer Use probe | Astra loaded native Computer Use and emitted MCP app approval; decline returned the expected not-approved result |
+| Historical native Computer Use probe | Astra loaded native Computer Use and emitted MCP app approval; decline returned the expected not-approved result. The current GPT-5.6 Sol worker has not had this live check. |
 | Approval acceptance probe | Stalled before the tool request; no successful Calculator observation or complete task is claimed |
 
 Hover opening, physical outside-click collapse, the in-app **Allow once** continuation, the physical Right Shift tap-and-circle flow, and a full voice, vision, and native Computer Use sequence remain unverified in the installed app.

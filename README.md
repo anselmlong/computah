@@ -51,7 +51,7 @@ Hover over the lime face or click it to open the panel. Click the face again or 
 | Native companion | SwiftUI views in an AppKit notch panel; no Dock icon or separate menu bar item |
 | Voice | AVFoundation audio capture/playback and a WebSocket connection to `gpt-live-1` |
 | Screen understanding | ScreenCaptureKit captures the current display and optional crop; `gpt-5.6-luna` routes requests and interprets images |
-| Computer workers | One regular `codex app-server` process requesting `gpt-6-astra` with high reasoning effort per task |
+| Computer workers | One regular `codex app-server` process requesting `gpt-5.6-sol` with high reasoning effort per task |
 | App control | Native Codex Computer Use in the user's existing Mac applications |
 | Delivery | Swift Package Manager, hosted Mac CI, and a tagged app/site release pipeline |
 
@@ -90,10 +90,10 @@ Pushes to `main` deploy the website after CI passes, preserving the current app 
 
 Run `swift build`, `swift test`, and `python3 -m unittest discover -s scripts/tests -v` before releasing. Keep validation results tied to the revision tested; the demo checklist records what still needs a live rehearsal.
 
-The Swift suite verifies an installed Codex handshake, approval continuation, concurrent task isolation, current-directory preservation, same-turn worker questions, grounded voice-answer routing, task-card fallback, and secret-field handling. A live Astra probe loaded Computer Use and emitted a native app-approval request. Declining it produced the expected not-approved result. A separate acceptance probe stalled before the tool request, so successful Calculator observation and a complete Computer Use task remain unverified. A live spoken worker-question exchange is also unverified.
+The Swift suite verifies an installed Codex handshake, approval continuation, concurrent task isolation, current-directory preservation, same-turn worker questions, grounded voice-answer routing, task-card fallback, and secret-field handling. An earlier live Astra probe loaded Computer Use and emitted a native app-approval request. Declining it produced the expected not-approved result. GPT-5.6 Sol still needs the same live check. A separate acceptance probe stalled before the tool request, so successful Calculator observation and a complete Computer Use task remain unverified. A live spoken worker-question exchange is also unverified.
 
 With the user's authorization, local hardware checks verified nonzero microphone input after multichannel conversion, echo cancellation, and output completion. They did not save audio or send it to an API.
 
-Build 21 is signed, notarized, stapled, accepted by Gatekeeper, installed at `/Applications/Computah.app`, and running. Its archive is `dist/Computah-build-21.zip`. All 80 Swift tests pass. Earlier installed-app checks confirmed the 273 by 32 point idle notch, the face as its only idle control, face-click opening and closing, normal Codex installed status, and all four permissions allowed. Hover opening, physical outside-click collapse, the in-app **Allow once** continuation, a live spoken worker-question exchange, successful Calculator observation, and the physical Right Shift tap-and-circle flow remain unverified in the installed app.
+Build 22 is signed, notarized, stapled, accepted by Gatekeeper, installed at `/Applications/Computah.app`, and running. Its archive is `dist/Computah-build-22.zip`. All 80 Swift tests pass. Earlier installed-app checks confirmed the 273 by 32 point idle notch, the face as its only idle control, face-click opening and closing, normal Codex installed status, and all four permissions allowed. Hover opening, physical outside-click collapse, the in-app **Allow once** continuation, a live spoken worker-question exchange, successful Calculator observation, and the physical Right Shift tap-and-circle flow remain unverified in the installed app.
 
 Protocol references: [OpenAI API documentation](https://platform.openai.com/docs) and [Codex app-server documentation](https://developers.openai.com/codex/app-server).

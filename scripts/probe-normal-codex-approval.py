@@ -118,7 +118,7 @@ try:
         raise RuntimeError(initialized["error"].get("message", "initialize failed"))
     send(process, {"method": "initialized", "params": {}})
     started = request("thread/start", {
-        "model": "gpt-6-astra",
+        "model": "gpt-5.6-sol",
         "allowProviderModelFallback": False,
         "cwd": os.path.expanduser("~"),
         "approvalPolicy": "untrusted",
@@ -129,7 +129,7 @@ try:
     thread_id = started["result"]["thread"]["id"]
     request("turn/start", {
         "threadId": thread_id,
-        "model": "gpt-6-astra",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "input": [{"type": "text", "text_elements": [], "text": (
             "Use the installed native Codex computer-use capability to observe only Calculator. "

@@ -10,7 +10,7 @@ Computah has three independent lifecycles: the native companion, a voice convers
 
 1. **Start with the Mac interaction.** An accessory app hosts a borderless notch panel. A right-modifier event tap supports talking and lasso selection without taking over the user's pointer.
 2. **Connect voice and screen context.** AVFoundation converts microphone input to 24 kHz PCM and plays streamed responses. ScreenCaptureKit captures the display under the pointer. Routing runs after a short transcript pause and chooses conversation, vision, computer work, or showing a task.
-3. **Start a normal Codex worker for each task.** The task manager launches `codex app-server` under the user's normal Codex home, signed-in account, configuration, and plugins. The worker requests `gpt-6-astra` with high reasoning effort and uses native Computer Use in the user's existing applications.
+3. **Start a normal Codex worker for each task.** The task manager launches `codex app-server` under the user's normal Codex home, signed-in account, configuration, and plugins. The worker requests `gpt-5.6-sol` with high reasoning effort and uses native Computer Use in the user's existing applications.
 4. **Keep questions with the right task.** Generation identifiers reject stale callbacks after cancellation. Task batches return bounded text summaries to the originating voice session. When a worker asks for information or confirmation, the voice layer asks the user and returns the actual answer to that same waiting app-server turn.
 5. **Package the app and site together.** Swift Package Manager builds the app. Tagged releases package the app and matching static website download with a checksum manifest. Legacy fixture scripts can still render the illustrative browser screenshots used by the demo site; they are not the current task runtime.
 
@@ -39,7 +39,7 @@ flowchart TD
     Route --> Vision[VisionService: gpt-5.6-luna]
     Route --> Tasks[ComputerTaskManager]
     Vision --> Findings[Text findings returned to voice]
-    Tasks --> Worker[One codex app-server per task: gpt-6-astra, high]
+    Tasks --> Worker[One codex app-server per task: gpt-5.6-sol, high]
     Worker <--> NativeApps[Native Computer Use in existing Mac applications]
     Worker --> Findings
     Worker --> Approval[MCP app approval: Allow once or Don't allow]

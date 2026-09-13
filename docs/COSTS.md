@@ -11,7 +11,7 @@ Checked September 13, 2026; USD, before tax. These are standard API rates for th
 | Voice: `gpt-live-1` | $0.05 per minute, metered per second | [GPT-Live pricing](https://developers.openai.com/api/docs/models/gpt-live-1) |
 | Routing/vision: `gpt-5.6-luna` | $0.20 per million input tokens; $1.20 per million output tokens | [Luna pricing](https://developers.openai.com/api/docs/models/gpt-5.6-luna) |
 
-Computer workers request `gpt-6-astra` through the user's normal Codex account. Their usage follows that account's Codex plan and limits rather than the API-key calculation below.
+Computer workers request `gpt-5.6-sol` through the user's normal Codex account. Their usage follows that account's Codex plan and limits rather than the API-key calculation below.
 
 ## Illustrative budgets
 

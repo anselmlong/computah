@@ -175,7 +175,7 @@ private final class ComputerTaskTestPeer {
                 printf '%s\\n' '{"id":1,"result":{}}'
                 IFS= read -r fixture_line
                 IFS= read -r fixture_line
-                printf '%s\\n' '{"id":2,"result":{"model":"gpt-6-astra","modelProvider":"openai","thread":{"id":"thread-\(index)"}}}'
+                printf '%s\\n' '{"id":2,"result":{"model":"gpt-5.6-sol","modelProvider":"openai","thread":{"id":"thread-\(index)"}}}'
                 IFS= read -r fixture_line
                 printf '%s\\n' '{"method":"turn/started","params":{"threadId":"thread-\(index)","turn":{"id":"turn-\(index)"}}}'
                 printf '%s\\n' '{"id":3,"result":{"turn":{"id":"turn-\(index)"}}}'

@@ -25,7 +25,7 @@
     </div>
     <section id="setup" class="docs-section">
       <h2>Make yourself at home.</h2>
-      <p>You need an Apple silicon Mac with macOS 14 or later, internet access, and your own OpenAI API key for voice and screen reading. Those features use <code>gpt-live-1</code> and <code>gpt-5.6-luna</code>, with usage billed to your API account. Computer tasks need a compatible Codex CLI signed in to an account that can use <code>gpt-6-astra</code>, native Computer Use, and any required apps or plugins.</p>
+      <p>You need an Apple silicon Mac with macOS 14 or later, internet access, and your own OpenAI API key for voice and screen reading. Those features use <code>gpt-live-1</code> and <code>gpt-5.6-luna</code>, with usage billed to your API account. Computer tasks need a compatible Codex CLI signed in to an account that can use <code>gpt-5.6-sol</code>, native Computer Use, and any required apps or plugins.</p>
       <ol>
         <li><strong>Download and open.</strong> Get the app from the <a href="/#installation">download section</a>, unzip it, and move Computah.app to Applications. This prototype is not notarized. Follow normal macOS security controls; do not disable system protections.</li>
         <li><strong>Bring your own API key.</strong> Click the lime character at the top of the display, open Settings, paste your OpenAI API key, and save it to macOS Keychain. There is no Dock icon or separate menu bar item.</li>
@@ -38,7 +38,7 @@
     <section id="costs" class="docs-section">
       <h2>Your key. Your usage.</h2>
       <p>Computah is bring-your-own-key for voice and screen reading. The key is saved in macOS Keychain, and OpenAI bills that usage to your API account. Computer tasks use your signed-in Codex account instead.</p>
-      <p>Rates checked September 13, 2026, in USD before tax: <a href="https://developers.openai.com/api/docs/models/gpt-live-1">GPT-Live voice</a> is $0.05/minute, metered per second. <a href="https://developers.openai.com/api/docs/models/gpt-5.6-luna">Luna routing and vision</a> cost $0.20/$1.20 per million input/output tokens. Astra worker usage follows the signed-in Codex account's plan and limits.</p>
+      <p>Rates checked September 13, 2026, in USD before tax: <a href="https://developers.openai.com/api/docs/models/gpt-live-1">GPT-Live voice</a> is $0.05/minute, metered per second. <a href="https://developers.openai.com/api/docs/models/gpt-5.6-luna">Luna routing and vision</a> cost $0.20/$1.20 per million input/output tokens. GPT-5.6 Sol worker usage follows the signed-in Codex account's plan and limits.</p>
       <dl class="docs-help">
         <dt>Short demo · about $0.51</dt><dd>10 voice minutes; Luna 20,000 input / 2,000 output. Codex account usage is separate.</dd>
         <dt>Research session · about $1.52</dt><dd>30 voice minutes; Luna 60,000 input / 6,000 output. Codex account usage is separate.</dd>
@@ -53,7 +53,7 @@
       <ol class="architecture-flow">
         <li><strong>Talk and point</strong><span>SwiftUI and AppKit host the notch panel. AVFoundation streams voice; ScreenCaptureKit captures the display and optional selected crop.</span></li>
         <li><strong>Understand the request</strong><span>A routing model chooses conversation, screen interpretation, computer work, or showing an existing task. Vision returns text findings to the voice session.</span></li>
-        <li><strong>Use your Codex setup</strong><span>Each task gets a regular Codex app-server process requesting Astra with high reasoning effort. It uses your signed-in account, plugins, and native Computer Use in existing applications.</span></li>
+        <li><strong>Use your Codex setup</strong><span>Each task gets a regular Codex app-server process requesting <code>gpt-5.6-sol</code> with high reasoning effort. It uses your signed-in account, plugins, and native Computer Use in existing applications.</span></li>
         <li><strong>Return to you</strong><span>Results and app approvals appear in the task panel. Worker questions are spoken through the active voice conversation and the answer returns to the same task.</span></li>
       </ol>
       <p>Separating task lifecycles lets voice continue while computer work runs. Ending voice leaves tasks running; quitting the app stops all workers. Ephemeral worker threads are not restored after relaunch. Computer Use shares your existing applications, so tasks are not isolated from your work or each other.</p>

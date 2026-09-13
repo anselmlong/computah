@@ -21,7 +21,7 @@ Timings are a presenter outline, not latency promises. Research completion depen
 ## Rehearse before presenting
 
 - Keep one tested app bundle and grant permissions before the presentation. Rebuilding with ad hoc signing can change permission approvals.
-- Confirm the API account can use the configured voice and routing models. Confirm the signed-in Codex account can start Astra and access the required native apps.
+- Confirm the API account can use the configured voice and routing models. Confirm the signed-in Codex account can start `gpt-5.6-sol` and access the required native apps.
 - Run a complete voice → screen → computer task → native app approval → worker voice question → same-task continuation sequence on the presentation Mac, using public information. This remains a required release check even if compilation passes.
 - Confirm microphone and speaker routing; use headphones if echo cancellation is unavailable.
 - Open the live site and video, and check the download. Keep the architecture page available for questions.
@@ -41,4 +41,4 @@ This legacy harness uses SwiftUI views and the retired WebKit fixture path with 
 
 ## What is ready, and what comes next
 
-The native interface, routing, normal Codex worker transport, app-approval UI, and release tooling are implemented. See the [validation record](VALIDATION.md) for observed test results. Build 21 is signed with Developer ID and notarized. A full authenticated voice, vision, and native Computer Use rehearsal, wider hardware testing, enforced review controls, and resource limits for long-running use remain open.
+The native interface, routing, normal Codex worker transport, app-approval UI, and release tooling are implemented. See the [validation record](VALIDATION.md) for observed test results. Build 22 is signed with Developer ID and notarized. A full authenticated voice, vision, and native Computer Use rehearsal, wider hardware testing, enforced review controls, and resource limits for long-running use remain open.

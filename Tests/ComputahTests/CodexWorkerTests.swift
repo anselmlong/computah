@@ -44,7 +44,7 @@ final class CodexWorkerTests: XCTestCase {
             "app-server", "--enable", "default_mode_request_user_input", "--listen", "stdio://"
         ])
         let thread = CodexWorkerProtocol.thread(directory: directory)
-        XCTAssertEqual(thread["model"] as? String, "gpt-6-astra")
+        XCTAssertEqual(thread["model"] as? String, "gpt-5.6-sol")
         XCTAssertEqual(thread["allowProviderModelFallback"] as? Bool, false)
         XCTAssertEqual(thread["approvalPolicy"] as? String, "never")
         XCTAssertEqual(thread["sandbox"] as? String, "danger-full-access")
@@ -53,8 +53,13 @@ final class CodexWorkerTests: XCTestCase {
         XCTAssertNil(thread["dynamicTools"])
         XCTAssertNil(thread["environments"])
         let turn = CodexWorkerProtocol.turn(threadID: "t", task: "x", context: "y")
+        XCTAssertEqual(turn["model"] as? String, "gpt-5.6-sol")
         XCTAssertEqual(turn["effort"] as? String, "high")
         XCTAssertNil(turn["environments"])
+        let instructions = try XCTUnwrap(thread["baseInstructions"] as? String)
+        XCTAssertTrue(instructions.contains("Never submit, send, pay, publish, accept terms, or finalize"))
+        XCTAssertTrue(instructions.contains("clear confirmation question with explicit choices"))
+        XCTAssertTrue(instructions.contains("through request_user_input"))
         XCTAssertNoThrow(try JSONSerialization.data(withJSONObject: thread))
     }
 
@@ -362,7 +367,7 @@ final class CodexWorkerTests: XCTestCase {
         printf '%s\\n' '{"id":1,"result":{}}'
         IFS= read -r fixture_line
         IFS= read -r fixture_line
-        printf '%s\\n' '{"id":2,"result":{"model":"gpt-6-astra","modelProvider":"openai","thread":{"id":"thread-test"}}}'
+        printf '%s\\n' '{"id":2,"result":{"model":"gpt-5.6-sol","modelProvider":"openai","thread":{"id":"thread-test"}}}'
         IFS= read -r fixture_line
         \(turnExchange)
         \(responseExchange)
