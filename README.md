@@ -6,7 +6,7 @@
 
 Computah is a native macOS voice companion that lives in your notch. Ask about what you see, circle something to give it context, and delegate research or preparation to independent browser workers—all while your own pointer and apps stay available.
 
-[Live demo site](https://computah2.anselmlong.com) · [Watch the demo](https://youtu.be/WGbVYat8Lmg) · [Setup guide](docs/SETUP.md) · [Architecture](ARCHITECTURE.md)
+[Live demo site](https://computah.anselmlong.com) · [Watch the demo](https://youtu.be/WGbVYat8Lmg) · [Setup guide](docs/SETUP.md) · [Architecture](ARCHITECTURE.md)
 
 ![Computah's native interface with an illustrative conversation](website/assets/masters-conversation.png)
 
@@ -25,7 +25,7 @@ The interaction is simple: **talk, point, delegate, review.**
 
 ## Try it
 
-Download the Mac prototype from the [demo site](https://computah2.anselmlong.com), or build from source:
+Download the Mac prototype from the [demo site](https://computah.anselmlong.com), or build from source:
 
 ```sh
 zsh scripts/build.sh

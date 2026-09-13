@@ -1,6 +1,6 @@
 # Computah website
 
-Static source for [computah2.anselmlong.com](https://computah2.anselmlong.com), with the [demo video](https://youtu.be/WGbVYat8Lmg) linked from the homepage and documentation.
+Static source for [computah.anselmlong.com](https://computah.anselmlong.com), with the [demo video](https://youtu.be/WGbVYat8Lmg) linked from the homepage and documentation.
 
 - `index.html`: product pitch, native screenshots, download, and FAQ.
 - `docs.html`: public setup, architecture, and data-sharing guide. It works without access to the private source repository.

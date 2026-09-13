@@ -35,7 +35,7 @@ Have a spoken conversation about what is on screen, point by circling, and deleg
 
 The app is implemented in Swift with SwiftUI and AppKit. Browser workers start with temporary configuration and working directories, request read-only access, and disable built-in execution tools. They do not reuse the user's Codex configuration or account plugins.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the implementation decisions and [docs/VALIDATION.md](docs/VALIDATION.md) for dated evidence and remaining coverage. The [demo site](https://computah2.anselmlong.com) and [video](https://youtu.be/WGbVYat8Lmg) introduce the experience.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the implementation decisions and [docs/VALIDATION.md](docs/VALIDATION.md) for dated evidence and remaining coverage. The [demo site](https://computah.anselmlong.com) and [video](https://youtu.be/WGbVYat8Lmg) introduce the experience.
 
 ## Brand commitments
 

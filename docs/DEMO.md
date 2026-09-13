@@ -1,6 +1,6 @@
 # Demo walkthrough
 
-[Open the demo site](https://computah2.anselmlong.com) · [Watch the demo video](https://youtu.be/WGbVYat8Lmg)
+[Open the demo site](https://computah.anselmlong.com) · [Watch the demo video](https://youtu.be/WGbVYat8Lmg)
 
 ## The 30-second pitch
 

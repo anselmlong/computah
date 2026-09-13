@@ -60,4 +60,4 @@ This does not notarize the app, and macOS permission approvals can change after 
 | Scripted portal will not load | Take over, then reload manually. Reloading can clear prepared fields. |
 | `no such module XCTest` | Select an installed full Xcode toolchain. Command-line tools alone may build the app but cannot run this suite. |
 
-[Project overview](../README.md) · [Demo walkthrough](DEMO.md) · [Live site](https://computah2.anselmlong.com)
+[Project overview](../README.md) · [Demo walkthrough](DEMO.md) · [Live site](https://computah.anselmlong.com)

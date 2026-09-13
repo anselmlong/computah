@@ -48,7 +48,7 @@ def main():
     configuration.mkdir(parents=True, exist_ok=True, mode=0o700)
     settings = dict(deployment_home=str(args.deployment_home.resolve()), signing_identity=args.signing_identity,
                     vercel_project=json.loads(args.project_file.read_text()),
-                    production_url="https://computah2.anselmlong.com",
+                    production_url="https://computah.anselmlong.com",
                     install_directory=str(Path.home() / "Applications"))
     config = configuration / "config.json"
     config.write_text(json.dumps(settings, indent=2) + "\n")

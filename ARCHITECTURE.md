@@ -2,7 +2,7 @@
 
 Computah is a native macOS 14+ executable built with Swift Package Manager, SwiftUI, and AppKit. There are no declared third-party package dependencies. The app coordinates remote model requests and local browser worker processes; the models do not run on the Mac.
 
-[Demo site](https://computah2.anselmlong.com) · [Demo video](https://youtu.be/WGbVYat8Lmg) · [Project overview](README.md)
+[Demo site](https://computah.anselmlong.com) · [Demo video](https://youtu.be/WGbVYat8Lmg) · [Project overview](README.md)
 
 ## How we built it
 

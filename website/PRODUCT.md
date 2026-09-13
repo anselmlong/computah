@@ -30,7 +30,7 @@ Use the native app’s black-and-lime identity across the website. Retain the re
 
 ## Public documentation
 
-`docs.html` provides setup, architecture, and data-sharing notes without requiring access to the private repository. The canonical site is https://computah2.anselmlong.com and the demo recording is https://youtu.be/WGbVYat8Lmg.
+`docs.html` provides setup, architecture, and data-sharing notes without requiring access to the private repository. The canonical site is https://computah.anselmlong.com and the demo recording is https://youtu.be/WGbVYat8Lmg.
 
 The user selected the native lime face as the primary website brand mark. Use it in the header, footer, and favicon; use black backgrounds, lime actions, and soft off-white text throughout.
 
