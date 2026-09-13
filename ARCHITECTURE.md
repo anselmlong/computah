@@ -90,7 +90,7 @@ Use `swift build` for compilation and `swift test` for the test suite. Tests inc
 
 The optional `zsh scripts/audio-smoke-test.sh` uses the microphone and audio output. Run it only when hardware testing is intended. It is separate from compilation and automated unit tests.
 
-The `Check and release` workflow runs CI on a hosted Mac. Version tags then use the private repository’s personal Mac runner to package, deploy, verify the public download, and install/open the same bundle. Website source lives in `website/`. See [RELEASES.md](RELEASES.md) for the deployment boundary and rollback limitations.
+The `Check and release` workflow runs CI on a hosted Mac. Successful pushes to `main` deploy the website from a hosted Linux runner, preserving the current app archive and verifying site checksums. Version tags then use the private repository’s personal Mac runner to package, deploy, verify the public download, and install/open the same bundle. Website source lives in `website/`. See [RELEASES.md](RELEASES.md) for the deployment boundary and rollback limitations.
 
 ## Remaining production work
 

@@ -1,6 +1,16 @@
 # Releases
 
-Push source changes to `main` normally. GitHub Actions builds the app and runs Swift and release-script tests on a hosted Mac with Xcode. Pull requests run these checks too; they never execute on the personal Mac.
+Push source changes to `main` normally. GitHub Actions builds the app and runs Swift and release-script tests on a hosted Mac with Xcode. Pull requests run these checks too; they never deploy or execute on the personal Mac. After checks pass, every push to `main` deploys the website on a hosted Linux runner.
+
+## Continuous website deployment
+
+The `website` job installs Vercel CLI 59.16.0, stages the static site, and publishes to https://computah.anselmlong.com. It downloads and verifies the current app ZIP first, then carries that exact ZIP and app manifest into the new website. It does not build, install, or open the app. Website and tagged-release jobs share a concurrency group to prevent simultaneous publication.
+
+GitHub stores `VERCEL_TOKEN` as an encrypted repository secret. Repository variables `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` identify the existing project. The workflow exposes the token only to the deployment step. Keep commits attributed to a GitHub identity authorized on the Vercel team; an unrecognized local Git author email can cause Vercel to block deployment even with a valid token.
+
+`scripts/deploy-site.py` records the website commit and file checksums in `website-release.json`. After deployment it verifies the live HTML, JavaScript, CSS, icon, website manifest, app manifest, and ZIP. An error fails the job; use Vercel deployment history for rollback. Test staging locally with `python3 scripts/deploy-site.py --prepare-only`, which reads the current public download without publishing.
+
+## Tagged app releases
 
 To publish a version already committed and pushed to `main`:
 
@@ -33,7 +43,7 @@ For local packaging tests, run `python3 scripts/release.py --tag v0.1.1 --mode d
 
 The repo must remain private for this personal runner configuration. The runner is registered only to `anselmlong/computah2` and labeled `computah-release`. It uses the logged-in user's launch agent so it can open the app on that desktop. The Mac needs to be awake, online, and logged in; otherwise releases queue until the runner becomes available. Only trusted maintainers should be able to push version tags or modify the release workflow: those jobs run code as this Mac user.
 
-The existing local Vercel helper and its credential stay on the Mac; no Vercel or Apple secrets are copied to GitHub. Setup requires an authenticated `gh`, Python 3, Node, Swift command-line tools, and the existing deployment helper:
+Tagged app releases use the existing local Vercel helper on the Mac. Website CI uses the encrypted GitHub Vercel token secret described above; Apple signing credentials remain on the Mac. Setup requires an authenticated `gh`, Python 3, Node, Swift command-line tools, and the existing deployment helper:
 
 ```sh
 python3 scripts/setup-release-runner.py \

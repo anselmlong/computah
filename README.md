@@ -67,4 +67,6 @@ The API key is stored in macOS Keychain. Audio and available screen images can b
 | [Releases](RELEASES.md) | Packaging, signing, deployment, and rollback |
 | [Website](website/README.md) | Static site development and public documentation |
 
+Pushes to `main` deploy the website after CI passes, preserving the current app download. Version tags publish new app builds through the separate release job.
+
 Run `swift build`, `swift test`, and `python3 -m unittest discover -s scripts/tests -v` before releasing. Keep validation results tied to the revision tested; the demo checklist records what still needs a live rehearsal.

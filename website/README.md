@@ -19,6 +19,8 @@ There is no frontend build step. Run `node --test scripts/tests/site.test.cjs` f
 
 ## Publish
 
+Every push to `main` deploys the site after CI passes. `scripts/deploy-site.py` preserves the existing app download and verifies the published website checksums. It never installs or opens Computah on the Mac.
+
 `scripts/release.py` stages the public HTML, CSS, JavaScript, and assets, adds `downloads/Computah.zip` and `release.json`, and stamps the version/size labels from the real bundle and archive. Development Markdown and hidden configuration are excluded from staging. See [RELEASES.md](../RELEASES.md) for dry runs, previews, publishing, and rollback.
 
 Keep `docs.html` aligned with [setup](../docs/SETUP.md), [architecture](../ARCHITECTURE.md), and [data and limits](../docs/PRIVACY.md). A release does not regenerate screenshots; preserve their visible illustrative-data captions and provenance.

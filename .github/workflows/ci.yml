@@ -37,6 +37,30 @@ jobs:
           swiftc scripts/InstallRelease.swift -o /tmp/computah-install-check
           zsh -n scripts/build.sh
 
+  website:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: computah-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install Vercel CLI
+        run: npm install --global vercel@59.16.0
+      - name: Deploy and verify website; preserve app download
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: python3 scripts/deploy-site.py
+
   release:
     needs: check
     if: >-
