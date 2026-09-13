@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Set up Computah and see how its native Mac interface, voice conversation, screen understanding, and independent browser workers fit together.">
+  <meta name="theme-color" content="#0b0d0b">
+  <link rel="canonical" href="https://computah2.anselmlong.com/docs.html">
+  <link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+  <title>Setup &amp; architecture — Computah</title>
+  <script src="/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="header shell">
+    <a class="wordmark" href="/" aria-label="Computah home"><svg class="brand-face" viewBox="0 0 76 64" aria-hidden="true"><rect class="face-tile" width="76" height="64" rx="18"/><g transform="translate(0 7)"><g class="face-gaze"><g class="face-eyes"><rect class="face-eye" x="22" y="12" width="10" height="17" rx="5"/><rect class="face-eye" x="48" y="12" width="10" height="17" rx="5"/></g><path class="face-smile" d="M33 34 Q38 39 43 34"/></g></g></svg>computah<span>.</span></a>
+    <nav aria-label="Main navigation"><a href="https://youtu.be/WGbVYat8Lmg">Watch demo</a><a href="/#installation">Get Computah</a></nav>
+  </header>
+  <main id="main" class="docs shell">
+    <div class="docs-intro">
+      <h1>A little Computah.<br><span>Here’s how it works.</span></h1>
+      <p>A native Mac companion for talking about your screen and delegating browser work. Built for a hackathon, with you in control of the final action.</p>
+      <nav class="docs-nav" aria-label="On this page"><a href="#setup">Setup</a><a href="#architecture">Architecture</a><a href="#data">Data &amp; limits</a><a href="#help">Troubleshooting</a></nav>
+    </div>
+    <section id="setup" class="docs-section">
+      <h2>Make yourself at home.</h2>
+      <p>You need an Apple silicon Mac with macOS 14 or later, internet access, and your own OpenAI API key. Browser tasks also need a compatible Codex CLI with app-server and dynamic-tool support. The configured models are <code>gpt-live-1</code>, <code>gpt-5.6-luna</code>, and <code>gpt-5.6-sol</code>; your account must have access. Usage is billed to your API account.</p>
+      <ol>
+        <li><strong>Download and open.</strong> Get the app from the <a href="/#installation">download section</a>, unzip it, and move Computah.app to Applications. This prototype is not notarized. Follow normal macOS security controls; do not disable system protections.</li>
+        <li><strong>Add your key.</strong> Click the character or chevron at the top of the display, open settings, and save your key to macOS Keychain. There is no Dock icon or separate menu bar item.</li>
+        <li><strong>Allow access.</strong> Microphone enables voice; Screen Recording enables screen context; Input Monitoring enables the conversation key. Use the permission controls in settings. Reopen the app if macOS requests it.</li>
+        <li><strong>Check Codex.</strong> Computah checks its inherited PATH, then <code>~/.local/bin</code>, <code>/opt/homebrew/bin</code>, <code>/usr/local/bin</code>, and <code>~/.cargo/bin</code> for the CLI. A Finder launch does not inherit your shell’s PATH.</li>
+        <li><strong>Start talking.</strong> Tap Right Shift, or use Start talking. Hold the conversation key and drag to circle a region, then ask about it. Escape cancels the selection.</li>
+      </ol>
+      <p>Try: “Find the official NUS Master of Computing General Track admissions requirements and summarize them with source links.” Open the task browser to watch. Choose Take over to stop the worker before interacting yourself.</p>
+    </section>
+    <section id="architecture" class="docs-section">
+      <h2>One conversation.<br>Independent browser work.</h2>
+      <p>We built three cooperating parts: a native companion, a voice session, and a browser workspace for each delegated task. The Mac runs the interface and local workers; the models run remotely.</p>
+      <ol class="architecture-flow">
+        <li><strong>Talk and point</strong><span>SwiftUI and AppKit host the notch panel. AVFoundation streams voice; ScreenCaptureKit captures the display and optional selected crop.</span></li>
+        <li><strong>Understand the request</strong><span>A routing model chooses conversation, screen interpretation, browser work, or showing an existing browser. Vision returns text findings to the voice session.</span></li>
+        <li><strong>Work in a separate browser</strong><span>Each independent task gets a local Codex app-server process and a nonpersistent WebKit session. Six tools navigate, observe, click, type, scroll, and request review.</span></li>
+        <li><strong>Return to you</strong><span>Results appear in the task panel. Watching leaves work running. Taking over stops the worker and gives you manual control.</span></li>
+      </ol>
+      <p>Separating task lifecycles lets you continue using your Mac while research runs. Ending voice leaves browser tasks running; quitting the app stops all workers. Sessions are not restored after relaunch.</p>
+      <p>Swift Package Manager builds the app without third-party package dependencies. Hosted Mac CI checks the Swift code and release tooling. Tagged releases package the app and static website together, with a manifest and SHA-256 checksum for the download.</p>
+    </section>
+    <section id="data" class="docs-section">
+      <h2>Your context, with clear limits.</h2>
+      <p>Microphone audio goes to OpenAI during conversation. Available display images and a selected crop can be sent for routing and interpretation. <strong>Circling does not restrict sharing to the crop.</strong> Browser observations also include page text and screenshots.</p>
+      <p>The API key lives in macOS Keychain. Each task uses a separate nonpersistent browser and temporary worker configuration, rather than your normal browser or Codex profile. Temporary files are removed on normal worker exit; abrupt failures can leave them behind. Requests set <code>store: false</code>, which is not a promise of zero retention under the provider’s policies.</p>
+      <p>During preparation, website JavaScript is disabled and form submissions, non-GET navigation, and recognized consequential controls are blocked. Modern portals may require manual takeover. Reloading after takeover enables website scripts and can clear prepared fields. Sign-in, uploads, and final submission stay with you.</p>
+      <p>These are prototype restrictions, not complete operating-system or network isolation. The app does not automate other desktop applications. Broad release still needs signing and notarization, wider hardware validation, and resource controls for long-running use.</p>
+    </section>
+    <section id="help" class="docs-section">
+      <h2>Get back to the conversation.</h2>
+      <dl class="docs-help">
+        <dt>The shortcut does nothing</dt><dd>Check Input Monitoring and the conversation-key setting. Start talking works without the shortcut.</dd>
+        <dt>The microphone or voice connection fails</dt><dd>Check input/output devices, the network, API key, and model access. Reopen the app and retry. Use headphones if the app reports that echo cancellation is unavailable.</dd>
+        <dt>A page will not load or a task stalls</dt><dd>Check Codex installation and the browser’s current page. Scripted websites can require Take over and a manual reload. Use Stop task to end work that is no longer useful.</dd>
+        <dt>Are the screenshots a live AI run?</dt><dd>The site screenshots use actual native views with illustrative conversations and a fictional application. Local browser tools filled fields and requested review. They are separate from the <a href="https://youtu.be/WGbVYat8Lmg">demo video</a>.</dd>
+      </dl>
+    </section>
+  </main>
+  <footer class="shell"><a class="wordmark" href="/" aria-label="Computah home"><svg class="brand-face" viewBox="0 0 76 64" aria-hidden="true"><rect class="face-tile" width="76" height="64" rx="18"/><g transform="translate(0 7)"><g class="face-gaze"><g class="face-eyes"><rect class="face-eye" x="22" y="12" width="10" height="17" rx="5"/><rect class="face-eye" x="48" y="12" width="10" height="17" rx="5"/></g><path class="face-smile" d="M33 34 Q38 39 43 34"/></g></g></svg>computah<span>.</span></a><p>A little closer to your next chapter.</p><button class="motion-toggle" type="button" aria-pressed="false">Pause animation</button><a class="footer-link" href="https://youtu.be/WGbVYat8Lmg">Watch the demo</a></footer>
+</body>
+</html>

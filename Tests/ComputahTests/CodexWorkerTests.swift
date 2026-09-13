@@ -221,6 +221,24 @@ final class CodexWorkerTests: XCTestCase {
     }
 
     @MainActor
+    func testUnknownOrMissingCompletionStatusCannotReportSuccess() async throws {
+        _ = NSApplication.shared
+        for status in [",\"status\":\"unexpected\"", ""] {
+            let worker = fakeWorker(events: [
+                #"{"method":"turn/started","params":{"threadId":"thread-test","turn":{"id":"turn-test"}}}"#,
+                "{\"method\":\"turn/completed\",\"params\":{\"threadId\":\"thread-test\",\"turn\":{\"id\":\"turn-test\"\(status)}}}"
+            ])
+            var results: [String] = []
+            worker.onResult = { results.append($0) }
+            try await worker.start(task: "test", context: "", apiKey: "dummy-no-real-credentials")
+            XCTAssertFalse(worker.running)
+            XCTAssertEqual(worker.status, "Worker unavailable")
+            XCTAssertEqual(results.count, 1)
+            XCTAssertTrue(worker.result.contains("unrecognized task status"))
+        }
+    }
+
+    @MainActor
     private func fakeWorker(events: [String]) -> CodexWorker {
         // A deterministic subprocess speaks JSON-RPC without any model or network request.
         let eventPrints = events.map { "printf '%s\\n' '" + $0.replacingOccurrences(of: "'", with: "'\\''") + "'" }.joined(separator: "\n")

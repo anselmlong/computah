@@ -28,7 +28,13 @@ def version_from_tag(tag):
 
 
 def stage_site(source, destination, archive, metadata):
-    shutil.copytree(source, destination, ignore=shutil.ignore_patterns(".vercel", "downloads", "release.json"))
+    # Only public site files ship. Keep development docs and hidden state private.
+    public_files = {"index.html", "docs.html", "style.css", "site.js", "vercel.json"}
+    def exclude(directory, names):
+        if Path(directory) == source:
+            return [name for name in names if name not in public_files | {"assets"}]
+        return [name for name in names if name.startswith(".")]
+    shutil.copytree(source, destination, ignore=exclude)
     (destination / "downloads").mkdir()
     shutil.copy2(archive, destination / "downloads/Computah.zip")
     metadata = dict(metadata, sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
@@ -42,7 +48,6 @@ def stage_site(source, destination, archive, metadata):
                          f'<p class="release">Version {metadata["version"]} · Build {metadata["build"]} · Apple silicon · macOS 14+</p>', html)
     if count != 1:
         raise ValueError("Website release marker changed")
-    html = html.replace("the available ZIP remains version 0.1.0, build 6", "the available ZIP is the release shown above")
     (destination / "index.html").write_text(html)
     (destination / "release.json").write_text(json.dumps(metadata, indent=2) + "\n")
     return metadata

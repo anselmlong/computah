@@ -503,9 +503,11 @@ final class CodexWorker: ObservableObject {
                 finish("Codex could not complete the task. Check API access and the browser's current page.", status: "Worker unavailable")
             } else if turn["status"] as? String == "interrupted" {
                 finish("The browser task was interrupted.", status: "Stopped")
-            } else {
+            } else if turn["status"] as? String == "completed" {
                 let text = finalMessage ?? messageOrder.compactMap { messages[$0] }.joined(separator: "\n\n")
                 finish(text.isEmpty ? "The worker finished without a result." : text, status: "Finished")
+            } else {
+                finish("Codex returned an unrecognized task status. Check the browser before retrying.", status: "Worker unavailable")
             }
         default: break
         }

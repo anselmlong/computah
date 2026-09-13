@@ -8,7 +8,7 @@ Native Swift macOS app using SwiftUI and AppKit. The app lives in the notch pane
 
 ## Users
 
-A personal working prototype for Jensen. The user keeps working on the Mac while delegated browser work runs independently.
+People working through research and preparation on their Mac, starting with complex personal projects such as master’s applications. Built as a hackathon prototype, Computah lets them keep working while delegated browser tasks run independently.
 
 ## Product purpose
 
@@ -33,9 +33,9 @@ Have a spoken conversation about what is on screen, point by circling, and deleg
 
 ## Implementation decisions
 
-The user chose Swift and asked to see the first version while development continued, explicitly waiving the understanding checkpoint for this implementation. The worker starts with an isolated temporary home and requests read-only access, with built-in execution tools disabled. It does not reuse the user's Codex configuration or account plugins.
+The app is implemented in Swift with SwiftUI and AppKit. Browser workers start with temporary configuration and working directories, request read-only access, and disable built-in execution tools. They do not reuse the user's Codex configuration or account plugins.
 
-This version builds locally and includes automated tests. Hosted CI passes the Swift suite (53 tests, one installed-CLI check skipped) and release tests. Local XCTest remains unavailable in the command-line-only toolchain; see README.md for dated verification status. Authenticated text routing and browser research have been verified against the official NUS Master of Computing General Track pages. Full voice/vision execution and a real application portal remain unverified.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the implementation decisions and [docs/VALIDATION.md](docs/VALIDATION.md) for dated evidence and remaining coverage. The [demo site](https://computah2.anselmlong.com) and [video](https://youtu.be/WGbVYat8Lmg) introduce the experience.
 
 ## Brand commitments
 
