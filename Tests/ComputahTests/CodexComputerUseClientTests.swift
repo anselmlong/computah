@@ -23,7 +23,7 @@ final class CodexComputerUseClientTests: XCTestCase {
             elif method=='tools/call':
                 name=msg['params']['name']
                 with open(trace,'a') as log: log.write(name+' start\\n')
-                if mode=='delay' and name=='click': time.sleep(0.1)
+                if mode=='delay' and name=='click': time.sleep(1)
                 if mode=='permission-delay' and name=='list_apps': time.sleep(20)
                 with open(trace,'a') as log: log.write(name+' finish\\n')
                 if mode=='timeout': time.sleep(5);continue
@@ -73,7 +73,7 @@ final class CodexComputerUseClientTests: XCTestCase {
         let (client, folder) = try fixture(mode: "permission-delay")
         defer { client.stop(); try? FileManager.default.removeItem(at: folder) }
         let setup = Task { try await client.connectForSetup() }
-        try await Task.sleep(for: .milliseconds(30))
+        try await Task.sleep(for: .milliseconds(300))
         do { try await client.connect(); XCTFail("Ordinary caller must not wait for the entire interactive setup") }
         catch { XCTAssertTrue(error is CodexComputerUseError) }
         XCTAssertFalse(client.available)
@@ -111,10 +111,10 @@ final class CodexComputerUseClientTests: XCTestCase {
         defer { client.stop(); try? FileManager.default.removeItem(at: folder) }
         try await client.connect()
         let action = Task { try await client.call(name: "click", arguments: ["app": "fixture"]) }
-        try await Task.sleep(for: .milliseconds(30))
+        try await Task.sleep(for: .milliseconds(300))
         action.cancel()
         let next = Task { try await client.call(name: "get_app_state", arguments: ["app": "fixture"]) }
-        try await Task.sleep(for: .milliseconds(30))
+        try await Task.sleep(for: .milliseconds(300))
         let early = try String(contentsOf: folder.appendingPathComponent("trace"))
         XCTAssertFalse(early.contains("get_app_state start"))
         do { _ = try await action.value; XCTFail("Expected cancelled result") } catch { XCTAssertTrue(error is CancellationError) }
@@ -128,7 +128,7 @@ final class CodexComputerUseClientTests: XCTestCase {
         defer { client.stop(); try? FileManager.default.removeItem(at: folder) }
         try await client.connect()
         let old = Task { try await client.call(name: "click", arguments: ["app": "fixture"]) }
-        try await Task.sleep(for: .milliseconds(30))
+        try await Task.sleep(for: .milliseconds(300))
         client.stop()
         try await client.connect()
         do { _ = try await old.value; XCTFail("Expected stale call cancellation") } catch { XCTAssertTrue(error is CancellationError) }
@@ -140,7 +140,7 @@ final class CodexComputerUseClientTests: XCTestCase {
         let (client, folder) = try fixture(mode: "timeout")
         defer { client.stop(); try? FileManager.default.removeItem(at: folder) }
         let task = Task { try await client.connect() }
-        try await Task.sleep(for: .milliseconds(30))
+        try await Task.sleep(for: .milliseconds(300))
         client.stop()
         do { try await task.value; XCTFail("Expected cancellation") } catch {}
         XCTAssertFalse(client.available)
