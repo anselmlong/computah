@@ -29,6 +29,28 @@ GitHub Actions retains the ZIP and manifest as run artifacts. The public downloa
 
 ## Test without publishing
 
+For a first-time source build, use the setup guide and `zsh scripts/build.sh`;
+`scripts/release.py` additionally requires the personal runner configuration
+described below. A packaging dry run still builds and signs a real app and may
+contact Apple's notarization service if `COMPUTAH_NOTARY_PROFILE` is set.
+
+Before advertising a downloadable build as notarized, check the exact app
+bundle being packaged:
+
+```sh
+codesign --verify --deep --strict --verbose=2 dist/Computah.app
+xcrun stapler validate dist/Computah.app
+spctl --assess --type execute --verbose=2 dist/Computah.app
+```
+
+Record the source commit, archive SHA-256, and command results with that release.
+The manifest's `signing: identity` only distinguishes the configured identity
+from ad hoc signing; it does not certify notarization or Gatekeeper acceptance.
+An ad hoc build is for local development and cannot be notarized. Do not bypass
+Gatekeeper or disable quarantine to present an unverified download as ready for
+other users. See [security boundaries](SECURITY.md) for what signing does and
+does not establish about computer-worker actions.
+
 ```sh
 gh workflow run ci.yml --ref main -f mode=dry-run -f version=v0.1.1
 gh run list --workflow ci.yml
@@ -52,7 +74,7 @@ python3 scripts/setup-release-runner.py \
   --project-file /Users/anselm/src/computah/static/computah2/.vercel/project.json
 ```
 
-Configuration is in `~/Library/Application Support/ComputahRelease/config.json`. The current `-` identity preserves the prototype's ad hoc development signing. This is not Developer ID signing or notarization; macOS permission approvals may change after updates. Set `signing_identity` to an existing Apple identity when available. The website source is now tracked in this repository at `website/`; edit it here for subsequent tagged releases. The old site's directory only supplies the existing Vercel project settings during setup.
+Configuration is in `~/Library/Application Support/ComputahRelease/config.json`. The example `-` identity selects ad hoc development signing. This is not Developer ID signing or notarization; macOS permission approvals may change after updates. Inspect the actual runner configuration rather than assuming it matches this example. Set `signing_identity` to an existing Developer ID Application identity for distribution, and provide `COMPUTAH_NOTARY_PROFILE` to the release process to notarize and staple. The website source is now tracked in this repository at `website/`; edit it here for subsequent tagged releases. The old site's directory only supplies the existing Vercel project settings during setup.
 
 Manage or disable the runner:
 
