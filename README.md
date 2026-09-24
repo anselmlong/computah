@@ -82,6 +82,7 @@ The voice and screen-reading API key is stored in macOS Keychain. Audio and avai
 | [Usage costs](docs/COSTS.md) | Published API rates and illustrative budgets |
 | [Validation record](docs/VALIDATION.md) | Dated evidence, test commands, and remaining coverage |
 | [Releases](RELEASES.md) | Packaging, signing, deployment, and rollback |
+| [Security boundaries](SECURITY.md) | Worker permissions, untrusted content, and release trust |
 | [Website](website/README.md) | Static site development and public documentation |
 
 Pushes to `main` deploy the website after CI passes, preserving the current app download. Version tags publish new app builds through the separate release job.
