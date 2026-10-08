@@ -44,3 +44,5 @@
 .title-measure::after{content:"";display:inline-block;width:7px;height:.82em;vertical-align:-.02em}
 
 .byok-note{font-size:12px;line-height:1.8;color:var(--muted);max-width:50ch;margin-top:8px}.byok-note a,.answer a{color:var(--accent);text-decoration:underline}
+
+.launch{border-top:1px solid var(--line);padding-block:48px}.launch video{display:block;width:100%;aspect-ratio:16/9;border-radius:12px;background:#10140e;border:1px solid #35432a}.launch figcaption{font-size:12px;line-height:1.7;color:var(--muted);margin-top:12px}@media(max-width:760px){.launch{padding-block:32px}}
